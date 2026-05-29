@@ -57,7 +57,7 @@ Colabノートブックの中で、公式Irodori-TTSリポジトリをcloneし�
 または、以下の形式のURLから直接開けます。
 
 ```text
-https://colab.research.google.com/github/あなたのGitHubユーザー名/irodori-tts-studio/blob/main/colab/IrodoriTTS_Studio.ipynb
+https://colab.research.google.com/github/goroyattemiyo/irodori-tts-studio/blob/main/colab/IrodoriTTS_Studio.ipynb
 ```
 
 ### STEP 2：ランタイムをGPUに変更する
