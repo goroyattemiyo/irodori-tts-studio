@@ -10,7 +10,7 @@ IrodoriTTSをGoogle Colab上で起動し、ブラウザGUIから台本を連続�
 
 ## Open in Colab
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/あなたのGitHubユーザー名/irodori-tts-studio/blob/main/colab/IrodoriTTS_Studio.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/goroyattemiyo/irodori-tts-studio/blob/main/colab/IrodoriTTS_Studio.ipynb)
 
 ## できること
 
