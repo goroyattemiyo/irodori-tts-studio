@@ -1,4 +1,3 @@
-````markdown
 # IrodoriTTS Studio
 
 IrodoriTTSをGoogle Colab上で起動し、ブラウザGUIから台本を連続音声生成するための補助ツールです。
@@ -210,6 +209,3 @@ outputs/
 ## License
 
 未定
-
-```
-```
