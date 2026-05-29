@@ -414,6 +414,124 @@ body::after {
 }
 """
 
+CUSTOM_CSS += r"""
+
+/* ===== Colab visible UI override: no gray text, black font, white panels ===== */
+body,
+.gradio-container,
+.gr-markdown,
+.markdown,
+.prose,
+.gr-markdown p,
+.gr-markdown span,
+label,
+.block label,
+.form label,
+.label-wrap span,
+p,
+span,
+h1, h2, h3, h4,
+[role="tab"],
+.tab-nav button {
+    color: #000000 !important;
+}
+
+body,
+.gradio-container {
+    background: #ffffff !important;
+}
+
+.hero,
+.studio-card,
+.input-subcard,
+.gr-accordion,
+.gr-group,
+.gr-box,
+.gr-panel,
+.tab-nav,
+.tabs > div:first-child,
+[role="tablist"] {
+    background: #ffffff !important;
+    color: #000000 !important;
+    border: 1px solid #000000 !important;
+    box-shadow: none !important;
+}
+
+textarea,
+input[type=text],
+input[type=number],
+select,
+.wrap,
+.gr-input,
+.gr-text-input {
+    background: #ffffff !important;
+    color: #000000 !important;
+    border: 1px solid #000000 !important;
+    box-shadow: none !important;
+}
+
+textarea::placeholder,
+input::placeholder {
+    color: #000000 !important;
+    opacity: 1 !important;
+}
+
+.section-title h2,
+.section-title h3,
+.gr-markdown h2,
+.gr-markdown h3,
+.gr-markdown h4 {
+    color: #000000 !important;
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    text-transform: none !important;
+    letter-spacing: 0 !important;
+    border-bottom: 1px solid #000000 !important;
+}
+
+.reference-card .audio-container,
+.reference-card .wrap,
+.reference-card [data-testid="audio"],
+.reference-card .file-preview,
+.reference-card .upload-container,
+.gr-file,
+.file-preview,
+.upload-container {
+    background: #ffffff !important;
+    color: #000000 !important;
+    border-color: #000000 !important;
+}
+
+button.secondary {
+    background: #ffffff !important;
+    color: #000000 !important;
+    border: 1px solid #000000 !important;
+}
+
+button.primary,
+button.btn-primary,
+.btn-primary button,
+.hero-generate button {
+    background: #111111 !important;
+    color: #ffffff !important;
+    border: 1px solid #111111 !important;
+}
+
+.danger-button button,
+button.danger-button {
+    background: #d93025 !important;
+    color: #ffffff !important;
+    border: 1px solid #b3261e !important;
+}
+
+body::before,
+body::after,
+.hero::before,
+.hero::after {
+    display: none !important;
+}
+"""
+
 
 def _project_root() -> Path:
     return Path(__file__).resolve().parent
@@ -687,6 +805,49 @@ def _load_project_for_ui(selected_dir: str | None) -> tuple[object, ...]:
         int(data.get("mp3_bitrate", 192)),
         data.get("hf_checkpoint", DEFAULT_HF_CHECKPOINT),
         "\n".join(log_lines),
+    )
+
+
+def _load_project_from_json_file_for_ui(project_json_file: str | None) -> tuple[object, ...]:
+    """project.json ファイル選択からプロジェクトを読み込む。"""
+    if not project_json_file or not str(project_json_file).strip():
+        raise gr.Error("読み込む project.json を選択してください。")
+
+    json_path = Path(str(project_json_file).strip().strip('"')).expanduser()
+    if not json_path.is_file():
+        raise gr.Error(f"project.json が見つかりません: {json_path}")
+    if json_path.name.lower() != PROJECT_FILE:
+        raise gr.Error("project.json を選択してください。")
+
+    project_dir = json_path.parent
+    data = _load_project_json(project_dir)
+    if not data:
+        raise gr.Error(f"project.json を読み込めませんでした: {json_path}")
+
+    restored_ref = project_dir / "reference.wav"
+    restored_ref_text = str(restored_ref.resolve()) if restored_ref.is_file() else data.get("ref_path_text", "")
+
+    existing_wav = sorted(project_dir.glob("chunk_*.wav"))
+    existing_mp3 = sorted(project_dir.glob("chunk_*.mp3"))
+    log_lines = [
+        f"プロジェクトを読み込みました: {project_dir.resolve()}",
+        f"  保存日時: {data.get('saved_at', '不明')}",
+        f"  生成済みWAV: {len(existing_wav)}件 / MP3: {len(existing_mp3)}件",
+    ]
+
+    return (
+        data.get("project_name", ""),
+        data.get("script_text", ""),
+        data.get("split_method", "auto"),
+        int(data.get("max_chars", 150)),
+        restored_ref_text,
+        float(data.get("cfg_scale_speaker", 7.0)),
+        float(data.get("cfg_scale_text", 2.5)),
+        int(data.get("num_steps", 60)),
+        int(data.get("seed", 42)),
+        int(data.get("mp3_bitrate", 192)),
+        data.get("hf_checkpoint", DEFAULT_HF_CHECKPOINT),
+        "\\n".join(log_lines),
     )
 
 
@@ -1572,12 +1733,29 @@ def build_ui() -> gr.Blocks:
                             "💾 プロジェクト保存", variant="secondary", scale=1
                         )
                         load_project_dropdown = gr.Dropdown(
-                            label="📂 保存済みプロジェクト",
-                            choices=_list_saved_projects(),
+                        label="保存済みプロジェクト",
+                        choices=_list_saved_projects(),
+                        visible=False,
+                    ),
                             scale=2,
                         )
                         load_project_btn = gr.Button(
-                            "📂 読込", variant="secondary", scale=1
+                        "📂 読込",
+                        variant="secondary",
+                        visible=False,
+                    )
+
+                    with gr.Group(elem_classes=["studio-card"]):
+                        gr.Markdown("#### プロジェクト読込", elem_classes=["section-title"])
+                        gr.Markdown("保存済みプロジェクトフォルダ内の `project.json` を選択して読み込みます。")
+                        project_json_file = gr.File(
+                            label="project.json を選択",
+                            file_types=[".json"],
+                            type="filepath",
+                        )
+                        load_project_from_json_btn = gr.Button(
+                            "📂 project.json から読込",
+                            variant="secondary",
                         )
 
                 with gr.Group(elem_classes=["studio-card"]):
@@ -1608,21 +1786,29 @@ def build_ui() -> gr.Blocks:
                         step=10,
                     )
 
-                with gr.Group(elem_classes=["studio-card"]):
+                with gr.Group(elem_classes=["studio-card", "reference-card"]):
                     gr.Markdown("### 参照音声", elem_classes=["section-title"])
-                    gr.Markdown("任意です。未指定の場合は `--no-ref` で生成します。")
-                    ref_path_text = gr.Textbox(
-                        label="A. 参照音声パス",
-                        placeholder=r"C:\path\to\voice.wav",
+                    gr.Markdown(
+                        "任意です。未指定の場合は参照音声なしで生成します。\\n\\n"
+                        "基本はアップロード、または録音を使ってください。"
                     )
-                    with gr.Row():
-                        uploaded_audio = gr.Audio(label="B. アップロード", type="filepath")
+                    with gr.Group(elem_classes=["input-subcard"]):
+                        uploaded_audio = gr.Audio(
+                            label="1. 参照音声をアップロード",
+                            type="filepath",
+                        )
+                    with gr.Group(elem_classes=["input-subcard"]):
                         recorded_audio = gr.Audio(
-                            label="C. 録音",
+                            label="2. その場で録音",
                             sources=["microphone"],
                             type="filepath",
                         )
-
+                    with gr.Accordion("詳細：パス指定", open=False):
+                        gr.Markdown("すでにPC内やDrive内の音声ファイルパスが分かっている場合だけ使います。")
+                        ref_path_text = gr.Textbox(
+                            label="参照音声パス",
+                            placeholder=r"/content/drive/MyDrive/voice.wav",
+                        )
                 with gr.Accordion("詳細設定", open=False, elem_classes=["studio-card"]):
                     with gr.Row():
                         cfg_scale_speaker = gr.Slider(
@@ -1861,6 +2047,25 @@ def build_ui() -> gr.Blocks:
         load_project_btn.click(
             _load_project_for_ui,
             inputs=[load_project_dropdown],
+            outputs=[
+                project_name,
+                script_text,
+                split_method,
+                max_chars,
+                ref_path_text,
+                cfg_scale_speaker,
+                cfg_scale_text,
+                num_steps,
+                seed,
+                mp3_bitrate,
+                hf_checkpoint,
+                run_log,
+            ],
+        )
+
+        load_project_from_json_btn.click(
+            _load_project_from_json_file_for_ui,
+            inputs=[project_json_file],
             outputs=[
                 project_name,
                 script_text,
