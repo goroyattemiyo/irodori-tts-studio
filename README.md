@@ -34,7 +34,7 @@ irodori-tts-studio/
 │  └─ setup_colab.sh
 ├─ README.md
 └─ .gitignore
-````
+
 
 ## 重要
 
