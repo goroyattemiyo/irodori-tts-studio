@@ -1733,16 +1733,14 @@ def build_ui() -> gr.Blocks:
                             "💾 プロジェクト保存", variant="secondary", scale=1
                         )
                         load_project_dropdown = gr.Dropdown(
-                        label="保存済みプロジェクト",
-                        choices=_list_saved_projects(),
-                        visible=False,
-                    ),
-                            scale=2,
+                            label="保存済みプロジェクト",
+                            choices=_list_saved_projects(),
+                            visible=False,
                         )
                         load_project_btn = gr.Button(
-                        "📂 読込",
-                        variant="secondary",
-                        visible=False,
+                            "📂 読込",
+                            variant="secondary",
+                            visible=False,
                     )
 
                     with gr.Group(elem_classes=["studio-card"]):
