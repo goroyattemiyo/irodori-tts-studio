@@ -216,3 +216,22 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# IrodoriTTS Studio local/generated files
+outputs/
+*.wav
+*.mp3
+*.m4a
+*.aac
+*.flac
+*.ogg
+*.zip
+
+# Local test files
+irodori_app_with_voicedesign_backup.py
+irodori_app_backup_*.py
+patch_*.py
+
+# OS files
+.DS_Store
+Thumbs.db
