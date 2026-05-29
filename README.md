@@ -1,6 +1,3 @@
-以下を `README.md` にそのまま貼り替えでOKです。
-`あなたのGitHubユーザー名` の部分だけ、自分のGitHubユーザー名に置き換えてください。
-
 ````markdown
 # IrodoriTTS Studio
 
