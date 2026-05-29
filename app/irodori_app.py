@@ -1711,37 +1711,35 @@ def build_ui() -> gr.Blocks:
                         model_status = gr.Textbox(label="モデル状態", lines=5, interactive=False)
 
                 with gr.Group(elem_classes=["studio-card"]):
-                    gr.Markdown("### プロジェクト設定", elem_classes=["section-title"])
-                    with gr.Row():
-                        project_name = gr.Textbox(
-                            label="📝 プロジェクト名 ✱",
-                            value="irodori_demo",
-                            scale=2,
-                            elem_classes=["required-label"],
-                        )
-                        hf_checkpoint = gr.Textbox(
-                            label="HF checkpoint",
-                            value=DEFAULT_HF_CHECKPOINT,
-                            scale=3,
-                        )
+                    gr.Markdown("### プロジェクト", elem_classes=["section-title"])
                     gr.Markdown(
-                        "保存しておくと、PCが落ちても同じプロジェクト名で「全チャンクを生成」"
-                        "を押すだけで未生成分だけ生成（続きから再開）できます。"
+                        "生成すると、台本・設定・参照音声・生成音声はプロジェクトフォルダに自動保存されます。\n\n"
+                        "保存名を指定したい場合は、下の保存名に入力して「プロジェクトを保存」を押してください。"
                     )
-                    with gr.Row():
+
+                    # 内部処理用。通常画面には表示しない。
+                    project_name = gr.Textbox(
+                        label="保存名（内部用）",
+                        value="",
+                        visible=False,
+                    )
+                    hf_checkpoint = gr.Textbox(
+                        label="HF checkpoint",
+                        value=DEFAULT_HF_CHECKPOINT,
+                        visible=False,
+                    )
+
+                    with gr.Group(elem_classes=["studio-card"]):
+                        gr.Markdown("#### プロジェクト保存", elem_classes=["section-title"])
+                        gr.Markdown("保存名は任意です。空欄で保存すると、年月日時の名前で保存されます。")
+                        manual_project_name = gr.Textbox(
+                            label="保存名（任意）",
+                            placeholder="例: chapter01_voice_test / 空欄なら irodori_年月日時",
+                        )
                         save_project_btn = gr.Button(
-                            "💾 プロジェクト保存", variant="secondary", scale=1
-                        )
-                        load_project_dropdown = gr.Dropdown(
-                            label="保存済みプロジェクト",
-                            choices=_list_saved_projects(),
-                            visible=False,
-                        )
-                        load_project_btn = gr.Button(
-                            "📂 読込",
+                            "💾 プロジェクトを保存",
                             variant="secondary",
-                            visible=False,
-                    )
+                        )
 
                     with gr.Group(elem_classes=["studio-card"]):
                         gr.Markdown("#### プロジェクト読込", elem_classes=["section-title"])
@@ -1756,6 +1754,17 @@ def build_ui() -> gr.Blocks:
                             variant="secondary",
                         )
 
+                    # 旧イベント互換用。表示しない。
+                    load_project_dropdown = gr.Dropdown(
+                        label="保存済みプロジェクト",
+                        choices=_list_saved_projects(),
+                        visible=False,
+                    )
+                    load_project_btn = gr.Button(
+                        "📂 読込",
+                        variant="secondary",
+                        visible=False,
+                    )
                 with gr.Group(elem_classes=["studio-card"]):
                     gr.Markdown("### 台本", elem_classes=["section-title"])
                     script_text = gr.Textbox(
@@ -2028,7 +2037,7 @@ def build_ui() -> gr.Blocks:
         save_project_btn.click(
             _save_project_for_ui,
             inputs=[
-                project_name,
+                manual_project_name,
                 script_text,
                 split_method,
                 max_chars,
