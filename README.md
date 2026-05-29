@@ -1,19 +1,22 @@
-@"
 # IrodoriTTS Studio
 
 IrodoriTTSをブラウザGUIで連続生成するための補助ツールです。
 
-## 使い方
+## 概要
 
-1. Colabノートブックを開く
-2. ランタイムをGPUに変更する
-3. セルを上から順番に実行する
-4. 表示されたGradio URLを開く
-5. 台本と参照音声を入れて生成する
+このリポジトリには、IrodoriTTS用のGradio GUIと、Colab起動用ノートブックを置きます。
 
-## 注意
+Irodori-TTS本体は含みません。  
+Colab上で公式Irodori-TTSをcloneし、このGUIを配置して使います。
 
-- このリポジトリにはIrodori-TTS本体は含みません。
-- Colab上で公式Irodori-TTSをcloneし、このGUIを配置して使います。
-- 生成物はproject.jsonと一緒に保存してください。
-"@ | Set-Content README.md -Encoding UTF8
+## フォルダ構成
+
+```text
+app/
+  irodori_app.py
+
+colab/
+  IrodoriTTS_Studio.ipynb
+
+docs/
+  usage.md
