@@ -16,6 +16,15 @@ IrodoriTTSをGoogle Colab上で起動し、ブラウザGUIから音声生成す�
 
 [![Open Video Converter In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/goroyattemiyo/irodori-tts-studio/blob/main/colab/IrodoriTTS_VideoConverter.ipynb)
 
+## VoiceDesignで作った音声をStudioで使う方法
+
+1. VoiceDesignでサンプル音声を生成する
+2. 「Google Driveへ保存（Studioで参照可）」を押す
+3. Studioを開いて同じGoogle Driveをマウントする
+4. 「参照音声」→「Google Driveから参照音声を選択」を開く
+5. `IrodoriTTS_VoiceDesign` フォルダ内のWAVを選ぶ
+6. その音声を参照音声として台本を生成する
+
 ## 使い方の流れ
 
 1. VoiceDesignで好みの声を作る

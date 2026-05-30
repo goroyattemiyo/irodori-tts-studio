@@ -1759,7 +1759,7 @@ def build_ui() -> gr.Blocks:
                             type="filepath",
                         )
                         with gr.Accordion("Google Driveからproject.jsonを選択", open=False):
-                            gr.Markdown("先にColabのGoogle Driveマウントセルを実行してください。")
+                            gr.Markdown("先にColabのGoogle Driveマウントセルを実行してください。VoiceDesignでGoogle Driveへ保存したWAVもここから選べます。")
                             project_json_drive = gr.FileExplorer(
                                 label="Drive内のproject.json",
                                 root_dir="/content/drive/MyDrive",
@@ -1841,7 +1841,7 @@ def build_ui() -> gr.Blocks:
                         gr.Markdown("すでにDrive内の音声ファイルパスが分かっている場合だけ使います。")
                         ref_path_text = gr.Textbox(
                             label="参照音声パス",
-                            placeholder=r"/content/drive/MyDrive/voice.wav",
+                            placeholder=r"/content/drive/MyDrive/IrodoriTTS_VoiceDesign/voicedesign_42_20260530_123456.wav",
                         )
                 with gr.Accordion("詳細設定", open=False, elem_classes=["studio-card"]):
                     with gr.Row():

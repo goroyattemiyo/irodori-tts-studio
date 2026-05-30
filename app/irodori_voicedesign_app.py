@@ -524,7 +524,7 @@ def _copy_latest_to_drive(generated_wav: str | None) -> str:
     dst = drive_dir / src.name
     shutil.copy2(src, dst)
 
-    return f"Google Driveへ保存しました。\n{dst}"
+    return f"Google Driveへ保存しました。\n{dst}\n\nこのWAVは Studio の「Google Driveから参照音声を選択」から選べます。"
 
 
 def build_ui() -> gr.Blocks:
@@ -606,7 +606,7 @@ def build_ui() -> gr.Blocks:
                 output_wav = gr.Audio(label="生成WAV", type="filepath", interactive=False)
 
             with gr.Row():
-                save_drive_btn = gr.Button("Google Driveへ保存", variant="secondary")
+                save_drive_btn = gr.Button("Google Driveへ保存（Studioで参照可）", variant="secondary")
                 clear_result_btn = gr.Button("結果をクリア", variant="secondary")
 
             run_log = gr.Textbox(
