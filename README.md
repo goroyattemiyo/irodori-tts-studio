@@ -12,6 +12,10 @@ IrodoriTTSをGoogle Colab上で起動し、ブラウザGUIから音声生成す�
 
 [![Open Studio In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/goroyattemiyo/irodori-tts-studio/blob/main/colab/IrodoriTTS_Studio.ipynb)
 
+### 3. Video ConverterでSNS投稿用MP4にする
+
+[![Open Video Converter In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/goroyattemiyo/irodori-tts-studio/blob/main/colab/IrodoriTTS_VideoConverter.ipynb)
+
 ## 使い方の流れ
 
 1. VoiceDesignで好みの声を作る
@@ -19,6 +23,7 @@ IrodoriTTSをGoogle Colab上で起動し、ブラウザGUIから音声生成す�
 3. Studioでその音声を参照音声として使う
 4. 台本をチャンク分割して連続生成する
 5. 生成チャンクを確認・再生成・結合する
+6. Video ConverterでSNS投稿用MP4にする
 
 ## できること
 
