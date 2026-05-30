@@ -1785,6 +1785,21 @@ def build_ui() -> gr.Blocks:
                         )
 
                         with gr.Tabs():
+                            with gr.Tab("このColab内から読み込む"):
+                                gr.Markdown(
+                                    "このColabセッション中に保存したプロジェクトを読み込む場合はこちらを使います。"
+                                    "`/content/Irodori-TTS/outputs` 内の project.json を選択してください。"
+                                )
+                                project_json_outputs = gr.FileExplorer(
+                                    label="このColab内のproject.jsonを選択",
+                                    root_dir="/content/Irodori-TTS/outputs",
+                                    file_count="single",
+                                )
+                                load_project_from_outputs_btn = gr.Button(
+                                    "📂 このColab内のproject.jsonから読込",
+                                    variant="secondary",
+                                )
+
                             with gr.Tab("Google Driveから読み込む"):
                                 gr.Markdown("ColabでGoogle Driveをマウントしている場合はこちらを使います。")
                                 project_json_drive = gr.FileExplorer(
@@ -2147,6 +2162,25 @@ def build_ui() -> gr.Blocks:
         load_project_from_json_btn.click(
             _load_project_from_json_file_for_ui,
             inputs=[project_json_file],
+            outputs=[
+                project_name,
+                script_text,
+                split_method,
+                max_chars,
+                ref_path_text,
+                cfg_scale_speaker,
+                cfg_scale_text,
+                num_steps,
+                seed,
+                mp3_bitrate,
+                hf_checkpoint,
+                run_log,
+            ],
+        )
+
+        load_project_from_outputs_btn.click(
+            _load_project_from_json_file_for_ui,
+            inputs=[project_json_outputs],
             outputs=[
                 project_name,
                 script_text,
