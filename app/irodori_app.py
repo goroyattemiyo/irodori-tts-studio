@@ -22,7 +22,6 @@ MAX_CHUNKS = 20
 _CANCEL_REQUESTED = False
 
 CUSTOM_CSS = """
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Noto+Sans+JP:wght@300;400;500;600&display=swap');
 
 :root {
     /* ── Stitch カラーパレット ── */
