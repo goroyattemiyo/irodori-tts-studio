@@ -1752,27 +1752,34 @@ def build_ui() -> gr.Blocks:
 
                     with gr.Group(elem_classes=["studio-card"]):
                         gr.Markdown("#### プロジェクト読込", elem_classes=["section-title"])
-                        gr.Markdown("保存済みプロジェクトフォルダ内の `project.json` を選択して読み込みます。")
-                        project_json_file = gr.File(
-                            label="project.json を選択",
-                            file_types=[".json"],
-                            type="filepath",
+                        gr.Markdown(
+                            "保存済みプロジェクトを再開するときは、プロジェクトフォルダ内の `project.json` を選択してください。"
                         )
-                        with gr.Accordion("Google Driveからproject.jsonを選択", open=False):
-                            gr.Markdown("先にColabのGoogle Driveマウントセルを実行してください。VoiceDesignでGoogle Driveへ保存したWAVもここから選べます。")
-                            project_json_drive = gr.FileExplorer(
-                                label="Drive内のproject.json",
-                                root_dir="/content/drive/MyDrive",
-                                file_count="single",
-                            )
-                        load_project_from_json_btn = gr.Button(
-                            "📂 project.json から読込",
-                            variant="secondary",
-                        )
-                        load_project_from_drive_btn = gr.Button(
-                            "📂 Driveのproject.jsonから読込",
-                            variant="secondary",
-                        )
+
+                        with gr.Tabs():
+                            with gr.Tab("Google Driveから読み込む"):
+                                gr.Markdown("ColabでGoogle Driveをマウントしている場合はこちらを使います。")
+                                project_json_drive = gr.FileExplorer(
+                                    label="Drive内のproject.jsonを選択",
+                                    root_dir="/content/drive/MyDrive",
+                                    file_count="single",
+                                )
+                                load_project_from_drive_btn = gr.Button(
+                                    "📂 Driveのproject.jsonから読込",
+                                    variant="secondary",
+                                )
+
+                            with gr.Tab("アップロードして読み込む"):
+                                gr.Markdown("PCやスマホから `project.json` をアップロードして読み込む場合はこちらを使います。")
+                                project_json_file = gr.File(
+                                    label="project.jsonをアップロード",
+                                    file_types=[".json"],
+                                    type="filepath",
+                                )
+                                load_project_from_json_btn = gr.Button(
+                                    "📂 アップロードしたproject.jsonから読込",
+                                    variant="secondary",
+                                )
 
                     # 旧イベント互換用。表示しない。
                     load_project_dropdown = gr.Dropdown(
