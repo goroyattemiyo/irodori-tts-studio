@@ -186,6 +186,88 @@ body::after,
 .hero::after {
     display: none !important;
 }
+
+
+/* ===== Mobile stability fixes ===== */
+.audio-output-card {
+    min-height: 170px !important;
+    overflow: hidden !important;
+}
+
+.audio-output-card audio,
+.audio-output-card .audio-container,
+.audio-output-card [data-testid="audio"] {
+    width: 100% !important;
+    min-height: 54px !important;
+}
+
+.mobile-stable-card {
+    min-height: 120px !important;
+}
+
+.short-log textarea {
+    min-height: 72px !important;
+    max-height: 120px !important;
+    overflow-y: auto !important;
+}
+
+.detail-log textarea {
+    min-height: 220px !important;
+    max-height: 360px !important;
+    overflow-y: auto !important;
+}
+
+@media (max-width: 768px) {
+    .gradio-container {
+        padding: 0 12px 40px !important;
+        max-width: 100% !important;
+    }
+
+    .hero {
+        padding: 20px 16px 18px !important;
+        margin-bottom: 14px !important;
+    }
+
+    .hero h1 {
+        font-size: 1.55rem !important;
+        line-height: 1.2 !important;
+    }
+
+    .studio-card {
+        padding: 14px 12px !important;
+        margin: 10px 0 !important;
+    }
+
+    .section-title h2,
+    .section-title h3,
+    .gr-markdown h2,
+    .gr-markdown h3,
+    .gr-markdown h4 {
+        font-size: 15px !important;
+        line-height: 1.45 !important;
+    }
+
+    textarea,
+    input[type=text],
+    input[type=number] {
+        font-size: 16px !important;
+    }
+
+    .audio-output-card {
+        min-height: 190px !important;
+    }
+
+    .audio-output-card audio,
+    .audio-output-card .audio-container,
+    .audio-output-card [data-testid="audio"] {
+        min-height: 64px !important;
+    }
+
+    .detail-log textarea {
+        max-height: 300px !important;
+    }
+}
+
 """
 
 
@@ -340,7 +422,7 @@ def _generate_voicedesign(
     seed: int,
     num_steps: int,
     progress: gr.Progress = gr.Progress(track_tqdm=False),
-) -> tuple[str, str]:
+) -> tuple[str, str, str]:
     text = str(test_text or "").strip()
     caption_text = str(caption or "").strip()
 
@@ -409,7 +491,21 @@ def _generate_voicedesign(
         ]
     )
 
-    return str(output_wav), log
+    short_log = "\n".join(
+        [
+            "VoiceDesign生成が完了しました。",
+            f"seed: {int(seed)}",
+            f"num_steps: {int(num_steps)}",
+            f"output: {output_wav.name}",
+        ]
+    )
+
+    return str(output_wav), short_log, log
+
+
+def _clear_results() -> tuple[None, str, str, str]:
+    """生成結果とログをクリアする。"""
+    return None, "", "", ""
 
 
 def _copy_latest_to_drive(generated_wav: str | None) -> str:
@@ -504,23 +600,51 @@ def build_ui() -> gr.Blocks:
             elem_classes=["danger-button"],
         )
 
-        with gr.Group(elem_classes=["studio-card"]):
+        with gr.Group(elem_classes=["studio-card", "mobile-stable-card"]):
             gr.Markdown("### 生成結果", elem_classes=["section-title"])
-            output_wav = gr.Audio(label="生成WAV", type="filepath", interactive=False)
+            with gr.Group(elem_classes=["audio-output-card"]):
+                output_wav = gr.Audio(label="生成WAV", type="filepath", interactive=False)
+
             with gr.Row():
                 save_drive_btn = gr.Button("Google Driveへ保存", variant="secondary")
-            run_log = gr.Textbox(label="生成ログ", lines=12, interactive=False, elem_classes=["log-area"])
-            save_log = gr.Textbox(label="保存ログ", lines=3, interactive=False, elem_classes=["log-area"])
+                clear_result_btn = gr.Button("結果をクリア", variant="secondary")
+
+            run_log = gr.Textbox(
+                label="生成ログ",
+                lines=3,
+                interactive=False,
+                elem_classes=["log-area", "short-log"],
+            )
+
+            with gr.Accordion("詳細ログ", open=False):
+                detail_log = gr.Textbox(
+                    label="詳細ログ",
+                    lines=10,
+                    interactive=False,
+                    elem_classes=["log-area", "detail-log"],
+                )
+
+            save_log = gr.Textbox(
+                label="保存ログ",
+                lines=3,
+                interactive=False,
+                elem_classes=["log-area", "short-log"],
+            )
 
         check_env_btn.click(_check_environment, outputs=[env_status])
         load_model_btn.click(_load_model, outputs=[model_status])
         generate_btn.click(
             _generate_voicedesign,
             inputs=[test_text, caption, seed, num_steps],
-            outputs=[output_wav, run_log],
+            outputs=[output_wav, run_log, detail_log],
         )
         cancel_btn.click(_request_cancel, outputs=[run_log], queue=False)
         save_drive_btn.click(_copy_latest_to_drive, inputs=[output_wav], outputs=[save_log])
+        clear_result_btn.click(
+            _clear_results,
+            outputs=[output_wav, run_log, detail_log, save_log],
+            queue=False,
+        )
 
     return demo
 
