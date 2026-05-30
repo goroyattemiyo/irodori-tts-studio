@@ -936,6 +936,35 @@ def _split_chunks(text: str, method: str, max_chars: int = 150) -> list[str]:
     return [chunk for chunk in chunks if chunk]
 
 
+def _normalize_file_selection(value: object) -> str:
+    """FileExplorerなどの選択値を文字列パスに正規化する。"""
+    if value is None:
+        return ""
+    if isinstance(value, (list, tuple)):
+        if not value:
+            return ""
+        value = value[0]
+    cleaned = str(value).strip().strip('"')
+    return cleaned
+
+
+def _show_selected_drive_reference(ref_drive_audio: object) -> tuple[str, str]:
+    """Driveで選択した参照音声を表示し、パス指定欄にも反映する。"""
+    selected = _normalize_file_selection(ref_drive_audio)
+    if not selected:
+        return "未選択です。Drive内の音声ファイルを選択してください。", ""
+
+    path = Path(selected)
+    message = "\n".join(
+        [
+            "このDrive音声を参照音声として使います。",
+            f"ファイル名: {path.name}",
+            f"パス: {selected}",
+        ]
+    )
+    return message, selected
+
+
 def _resolve_reference_audio(
     project_dir: Path,
     ref_path_text: str | None,
@@ -1823,7 +1852,7 @@ def build_ui() -> gr.Blocks:
                 with gr.Group(elem_classes=["studio-card", "reference-card"]):
                     gr.Markdown("### 参照音声", elem_classes=["section-title"])
                     gr.Markdown(
-                        "任意です。未指定の場合は参照音声なしで生成します。\\n\\n"
+                        "任意です。未指定の場合は参照音声なしで生成します。\n\n"
                         "基本はアップロード、録音、またはGoogle Driveから選択してください。"
                     )
                     with gr.Group(elem_classes=["input-subcard"]):
@@ -1843,6 +1872,17 @@ def build_ui() -> gr.Blocks:
                             label="Drive内の参照音声",
                             root_dir="/content/drive/MyDrive",
                             file_count="single",
+                        )
+                        use_drive_ref_btn = gr.Button(
+                            "このDrive音声を参照音声に使う",
+                            variant="secondary",
+                        )
+                        selected_drive_ref_status = gr.Textbox(
+                            label="選択中のDrive参照音声",
+                            value="未選択です。",
+                            lines=3,
+                            interactive=False,
+                            elem_classes=["log-area"],
                         )
                     with gr.Accordion("詳細：パス指定", open=False):
                         gr.Markdown("すでにDrive内の音声ファイルパスが分かっている場合だけ使います。")
@@ -2141,6 +2181,13 @@ def build_ui() -> gr.Blocks:
                 hf_checkpoint,
                 run_log,
             ],
+        )
+
+        use_drive_ref_btn.click(
+            _show_selected_drive_reference,
+            inputs=[ref_drive_audio],
+            outputs=[selected_drive_ref_status, ref_path_text],
+            queue=False,
         )
         check_env_btn.click(_check_environment, outputs=[env_status])
         install_pydub_btn.click(_install_pydub, outputs=[env_status])
