@@ -941,11 +941,13 @@ def _resolve_reference_audio(
     ref_path_text: str | None,
     uploaded_audio: str | None,
     recorded_audio: str | None,
+    ref_drive_audio: str | None = None,
 ) -> tuple[str | None, str]:
     candidates = [
-        ("パス入力", ref_path_text),
         ("アップロード", uploaded_audio),
         ("録音", recorded_audio),
+        ("Google Drive", ref_drive_audio),
+        ("パス入力", ref_path_text),
     ]
     for label, raw_path in candidates:
         if raw_path is None or str(raw_path).strip() == "":
@@ -1333,6 +1335,7 @@ def _generate_all_chunks(
     ref_path_text: str | None,
     uploaded_audio: str | None,
     recorded_audio: str | None,
+    ref_drive_audio: str | None,
     cfg_scale_speaker: float,
     cfg_scale_text: float,
     num_steps: int,
@@ -1363,6 +1366,7 @@ def _generate_all_chunks(
         ref_path_text=ref_path_text,
         uploaded_audio=uploaded_audio,
         recorded_audio=recorded_audio,
+        ref_drive_audio=ref_drive_audio,
     )
 
     # 生成開始直後に project.json を自動保存（この時点でPCが落ちても条件は残る）
@@ -1483,6 +1487,7 @@ def _generate_all_chunks_for_ui(
     ref_path_text: str | None,
     uploaded_audio: str | None,
     recorded_audio: str | None,
+    ref_drive_audio: str | None,
     cfg_scale_speaker: float,
     cfg_scale_text: float,
     num_steps: int,
@@ -1527,6 +1532,7 @@ def _regenerate_chunk(
     ref_path_text: str | None,
     uploaded_audio: str | None,
     recorded_audio: str | None,
+    ref_drive_audio: str | None,
     cfg_scale_speaker: float,
     cfg_scale_text: float,
     num_steps: int,
@@ -1547,6 +1553,7 @@ def _regenerate_chunk(
         ref_path_text=ref_path_text,
         uploaded_audio=uploaded_audio,
         recorded_audio=recorded_audio,
+        ref_drive_audio=ref_drive_audio,
     )
     output_wav = project_dir / f"chunk_{int(chunk_index):02d}.wav"
     text_file = project_dir / f"chunk_{int(chunk_index):02d}.txt"
@@ -1606,6 +1613,7 @@ def _generate_one_chunk(
     ref_path_text: str | None,
     uploaded_audio: str | None,
     recorded_audio: str | None,
+    ref_drive_audio: str | None,
     cfg_scale_speaker: float,
     cfg_scale_text: float,
     num_steps: int,
@@ -1626,6 +1634,7 @@ def _generate_one_chunk(
         ref_path_text=ref_path_text,
         uploaded_audio=uploaded_audio,
         recorded_audio=recorded_audio,
+        ref_drive_audio=ref_drive_audio,
     )
 
     checkpoint = str(hf_checkpoint or "").strip() or DEFAULT_HF_CHECKPOINT
@@ -1749,8 +1758,19 @@ def build_ui() -> gr.Blocks:
                             file_types=[".json"],
                             type="filepath",
                         )
+                        with gr.Accordion("Google Driveからproject.jsonを選択", open=False):
+                            gr.Markdown("先にColabのGoogle Driveマウントセルを実行してください。")
+                            project_json_drive = gr.FileExplorer(
+                                label="Drive内のproject.json",
+                                root_dir="/content/drive/MyDrive",
+                                file_count="single",
+                            )
                         load_project_from_json_btn = gr.Button(
                             "📂 project.json から読込",
+                            variant="secondary",
+                        )
+                        load_project_from_drive_btn = gr.Button(
+                            "📂 Driveのproject.jsonから読込",
                             variant="secondary",
                         )
 
@@ -1797,7 +1817,7 @@ def build_ui() -> gr.Blocks:
                     gr.Markdown("### 参照音声", elem_classes=["section-title"])
                     gr.Markdown(
                         "任意です。未指定の場合は参照音声なしで生成します。\\n\\n"
-                        "基本はアップロード、または録音を使ってください。"
+                        "基本はアップロード、録音、またはGoogle Driveから選択してください。"
                     )
                     with gr.Group(elem_classes=["input-subcard"]):
                         uploaded_audio = gr.Audio(
@@ -1810,8 +1830,15 @@ def build_ui() -> gr.Blocks:
                             sources=["microphone"],
                             type="filepath",
                         )
+                    with gr.Accordion("3. Google Driveから参照音声を選択", open=False):
+                        gr.Markdown("先にColabのGoogle Driveマウントセルを実行してください。")
+                        ref_drive_audio = gr.FileExplorer(
+                            label="Drive内の参照音声",
+                            root_dir="/content/drive/MyDrive",
+                            file_count="single",
+                        )
                     with gr.Accordion("詳細：パス指定", open=False):
-                        gr.Markdown("すでにPC内やDrive内の音声ファイルパスが分かっている場合だけ使います。")
+                        gr.Markdown("すでにDrive内の音声ファイルパスが分かっている場合だけ使います。")
                         ref_path_text = gr.Textbox(
                             label="参照音声パス",
                             placeholder=r"/content/drive/MyDrive/voice.wav",
@@ -1989,6 +2016,7 @@ def build_ui() -> gr.Blocks:
                 ref_path_text,
                 uploaded_audio,
                 recorded_audio,
+                ref_drive_audio,
                 cfg_scale_speaker,
                 cfg_scale_text,
                 num_steps,
@@ -2073,6 +2101,25 @@ def build_ui() -> gr.Blocks:
         load_project_from_json_btn.click(
             _load_project_from_json_file_for_ui,
             inputs=[project_json_file],
+            outputs=[
+                project_name,
+                script_text,
+                split_method,
+                max_chars,
+                ref_path_text,
+                cfg_scale_speaker,
+                cfg_scale_text,
+                num_steps,
+                seed,
+                mp3_bitrate,
+                hf_checkpoint,
+                run_log,
+            ],
+        )
+
+        load_project_from_drive_btn.click(
+            _load_project_from_json_file_for_ui,
+            inputs=[project_json_drive],
             outputs=[
                 project_name,
                 script_text,

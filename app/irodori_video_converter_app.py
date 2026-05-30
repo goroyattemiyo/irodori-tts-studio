@@ -218,17 +218,34 @@ def _size_to_resolution(size_label: str) -> tuple[int, int]:
     return mapping.get(size_label, (1080, 1920))
 
 
+def _first_existing_path(*values: str | None) -> str | None:
+    for value in values:
+        if value is None:
+            continue
+        cleaned = str(value).strip().strip('"')
+        if cleaned:
+            return cleaned
+    return None
+
+
 def _make_video(
-    audio_path: str | None,
-    image_path: str | None,
+    audio_upload: str | None,
+    audio_drive: str | None,
+    audio_path_text: str | None,
+    image_upload: str | None,
+    image_drive: str | None,
+    image_path_text: str | None,
     size_label: str,
     output_name: str,
     bg_color: str,
 ) -> tuple[str | None, str]:
-    if not audio_path or not str(audio_path).strip():
-        raise gr.Error("音声ファイルを指定してください。")
+    audio_value = _first_existing_path(audio_upload, audio_drive, audio_path_text)
+    image_value = _first_existing_path(image_upload, image_drive, image_path_text)
 
-    audio = Path(str(audio_path).strip())
+    if not audio_value:
+        raise gr.Error("音声ファイルを指定してください。アップロード、Google Drive選択、パス指定のいずれかを使えます。")
+
+    audio = Path(audio_value).expanduser()
     if not audio.is_file():
         raise gr.Error(f"音声ファイルが見つかりません: {audio}")
 
@@ -247,8 +264,8 @@ def _make_video(
         safe_name += ".mp4"
     output = OUTPUT_ROOT / safe_name
 
-    if image_path and str(image_path).strip():
-        image = Path(str(image_path).strip())
+    if image_value:
+        image = Path(str(image_value).strip()).expanduser()
         if not image.is_file():
             raise gr.Error(f"背景画像が見つかりません: {image}")
 
@@ -320,7 +337,7 @@ def _make_video(
         [
             "MP4変換が完了しました。",
             f"audio: {audio.resolve()}",
-            f"image: {image_path or '背景色のみ'}",
+            f"image: {image_value or '背景色のみ'}",
             f"size: {width}x{height}",
             f"output: {output.resolve()}",
             "",
@@ -351,6 +368,10 @@ def _copy_to_drive(video_path: str | None) -> str:
     return f"Google Driveへ保存しました。\n{dst}"
 
 
+def _clear_inputs() -> tuple[None, None, str, None, None, str, None, str, str]:
+    return None, None, "", None, None, "", None, "", ""
+
+
 def build_ui() -> gr.Blocks:
     with gr.Blocks(title=APP_TITLE) as demo:
         gr.Markdown(
@@ -363,14 +384,45 @@ def build_ui() -> gr.Blocks:
 
         with gr.Group(elem_classes=["studio-card"]):
             gr.Markdown("### 入力", elem_classes=["section-title"])
-            audio_input = gr.Audio(
-                label="音声ファイル（WAV / MP3 / M4A）",
-                type="filepath",
+            gr.Markdown(
+                "アップロードが使えない環境では、Google DriveをマウントしてDriveから選択してください。"
             )
-            image_input = gr.Image(
-                label="背景画像（任意）",
-                type="filepath",
-            )
+
+            with gr.Group(elem_classes=["input-subcard"]):
+                gr.Markdown("#### 音声ファイル", elem_classes=["section-title"])
+                audio_input = gr.Audio(
+                    label="音声ファイルをアップロード（WAV / MP3 / M4A）",
+                    type="filepath",
+                )
+                with gr.Accordion("Google Driveから音声を選択", open=False):
+                    audio_drive = gr.FileExplorer(
+                        label="Drive内の音声ファイル",
+                        root_dir="/content/drive/MyDrive",
+                        file_count="single",
+                    )
+                with gr.Accordion("音声ファイルパスを直接入力", open=False):
+                    audio_path_text = gr.Textbox(
+                        label="音声ファイルパス",
+                        placeholder="/content/drive/MyDrive/IrodoriTTS/input/sample.wav",
+                    )
+
+            with gr.Group(elem_classes=["input-subcard"]):
+                gr.Markdown("#### 背景画像", elem_classes=["section-title"])
+                image_input = gr.Image(
+                    label="背景画像をアップロード（任意）",
+                    type="filepath",
+                )
+                with gr.Accordion("Google Driveから背景画像を選択", open=False):
+                    image_drive = gr.FileExplorer(
+                        label="Drive内の画像ファイル",
+                        root_dir="/content/drive/MyDrive",
+                        file_count="single",
+                    )
+                with gr.Accordion("背景画像パスを直接入力", open=False):
+                    image_path_text = gr.Textbox(
+                        label="背景画像パス",
+                        placeholder="/content/drive/MyDrive/IrodoriTTS/input/background.png",
+                    )
 
         with gr.Group(elem_classes=["studio-card"]):
             gr.Markdown("### 出力設定", elem_classes=["section-title"])
@@ -402,7 +454,9 @@ def build_ui() -> gr.Blocks:
         with gr.Group(elem_classes=["studio-card"]):
             gr.Markdown("### 結果", elem_classes=["section-title"])
             video_output = gr.Video(label="生成MP4", interactive=False)
-            save_drive_btn = gr.Button("Google Driveへ保存", variant="secondary")
+            with gr.Row():
+                save_drive_btn = gr.Button("Google Driveへ保存", variant="secondary")
+                clear_btn = gr.Button("入力と結果をクリア", variant="secondary")
             run_log = gr.Textbox(label="変換ログ", lines=12, interactive=False, elem_classes=["log-area"])
             save_log = gr.Textbox(label="保存ログ", lines=3, interactive=False, elem_classes=["log-area"])
 
@@ -412,10 +466,35 @@ def build_ui() -> gr.Blocks:
 
         generate_btn.click(
             _make_video,
-            inputs=[audio_input, image_input, size, output_name, bg_color],
+            inputs=[
+                audio_input,
+                audio_drive,
+                audio_path_text,
+                image_input,
+                image_drive,
+                image_path_text,
+                size,
+                output_name,
+                bg_color,
+            ],
             outputs=[video_output, run_log],
         )
         save_drive_btn.click(_copy_to_drive, inputs=[video_output], outputs=[save_log])
+        clear_btn.click(
+            _clear_inputs,
+            outputs=[
+                audio_input,
+                audio_drive,
+                audio_path_text,
+                image_input,
+                image_drive,
+                image_path_text,
+                video_output,
+                run_log,
+                save_log,
+            ],
+            queue=False,
+        )
         check_env_btn.click(_check_environment, outputs=[env_status])
 
     return demo
