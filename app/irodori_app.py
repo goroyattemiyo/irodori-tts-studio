@@ -532,6 +532,67 @@ body::after,
 """
 
 
+CUSTOM_CSS += r"""
+
+/* ===== UI fix: selected tab must be black, textbox focus must stay white ===== */
+
+/* 選択中タブの文字色を黒に固定 */
+[role="tab"],
+[role="tab"].selected,
+[role="tab"][aria-selected="true"],
+button[role="tab"],
+button[role="tab"].selected,
+button[role="tab"][aria-selected="true"] {
+    color: #000000 !important;
+    background: #ffffff !important;
+    border-color: #000000 !important;
+    box-shadow: none !important;
+}
+
+/* 選択中タブの下線も黒にする */
+[role="tab"][aria-selected="true"],
+button[role="tab"][aria-selected="true"],
+.tab-nav button.selected {
+    color: #000000 !important;
+    border-bottom: 2px solid #000000 !important;
+}
+
+/* テキストエリア・入力欄がフォーカス時に黒くなる問題を防ぐ */
+textarea,
+textarea:focus,
+textarea:focus-visible,
+input[type=text],
+input[type=text]:focus,
+input[type=text]:focus-visible,
+input[type=number],
+input[type=number]:focus,
+input[type=number]:focus-visible {
+    background: #ffffff !important;
+    color: #000000 !important;
+    -webkit-text-fill-color: #000000 !important;
+    caret-color: #000000 !important;
+    border: 1px solid #000000 !important;
+    box-shadow: none !important;
+    outline: 2px solid transparent !important;
+}
+
+/* 台本テキストエリアの見やすさ調整 */
+textarea {
+    line-height: 1.7 !important;
+    font-size: 15px !important;
+}
+
+/* プロジェクト欄の説明文を少し読みやすく */
+.project-help,
+.project-help p,
+.project-help li {
+    color: #000000 !important;
+    font-size: 14px !important;
+    line-height: 1.7 !important;
+}
+
+"""
+
 def _project_root() -> Path:
     return Path(__file__).resolve().parent
 
@@ -1738,8 +1799,8 @@ def build_ui() -> gr.Blocks:
 
         with gr.Tabs():
             with gr.TabItem("🎬 連続生成"):
-                with gr.Group(elem_classes=["studio-card"]):
-                    gr.Markdown("### モデルロード", elem_classes=["section-title"])
+                with gr.Accordion("モデルロード（必要な時だけ開く）", open=False, elem_classes=["studio-card"]):
+                    gr.Markdown("通常は開かなくてOKです。初回準備やモデル確認が必要な時だけ使います。")
                     with gr.Row():
                         load_model_btn = gr.Button(
                             "モデルロード（初回準備）",
@@ -1750,8 +1811,9 @@ def build_ui() -> gr.Blocks:
                 with gr.Group(elem_classes=["studio-card"]):
                     gr.Markdown("### プロジェクト", elem_classes=["section-title"])
                     gr.Markdown(
-                        "生成すると、台本・設定・参照音声・生成音声はプロジェクトフォルダに自動保存されます。\n\n"
-                        "保存名を指定したい場合は、下の保存名に入力して「プロジェクトを保存」を押してください。"
+                        "保存名を入れておくと、生成結果をあとから見つけやすくなります。\n\n"
+                        "生成時に project.json が自動保存されます。再開するときは、その project.json を読み込みます。",
+                        elem_classes=["project-help"],
                     )
 
                     # 内部処理用。通常画面には表示しない。
@@ -1767,31 +1829,35 @@ def build_ui() -> gr.Blocks:
                     )
 
                     with gr.Group(elem_classes=["studio-card"]):
-                        gr.Markdown("#### プロジェクト保存", elem_classes=["section-title"])
-                        gr.Markdown("保存名は任意です。空欄で保存すると、年月日時の名前で保存されます。")
+                        gr.Markdown("#### 1. 保存名", elem_classes=["section-title"])
+                        gr.Markdown(
+                            "あとで探しやすい名前を付けます。空欄でも生成できます。",
+                            elem_classes=["project-help"],
+                        )
                         manual_project_name = gr.Textbox(
-                            label="保存名（任意）",
-                            placeholder="例: chapter01_voice_test / 空欄なら irodori_年月日時",
+                            label="保存名",
+                            placeholder="例: chapter01_test / sample_voice / note_demo",
                         )
                         save_project_btn = gr.Button(
-                            "💾 プロジェクトを保存",
+                            "💾 今の台本と設定を保存",
                             variant="secondary",
                         )
 
                     with gr.Group(elem_classes=["studio-card"]):
-                        gr.Markdown("#### プロジェクト読込", elem_classes=["section-title"])
+                        gr.Markdown("#### 2. 読み込み", elem_classes=["section-title"])
                         gr.Markdown(
-                            "保存済みプロジェクトを再開するときは、プロジェクトフォルダ内の `project.json` を選択してください。"
+                            "以前の続きから作業するときは `project.json` を選びます。",
+                            elem_classes=["project-help"],
                         )
 
                         with gr.Tabs():
-                            with gr.Tab("このColab内から読み込む"):
+                            with gr.Tab("Colab内"):
                                 gr.Markdown(
-                                    "このColabセッション中に保存したプロジェクトを読み込む場合はこちらを使います。"
-                                    "`/content/Irodori-TTS/outputs` 内の project.json を選択してください。"
+                                    "このColabで生成したプロジェクトを再開します。",
+                                    elem_classes=["project-help"],
                                 )
                                 project_json_outputs = gr.FileExplorer(
-                                    label="このColab内のproject.jsonを選択",
+                                    label="project.jsonを選択",
                                     root_dir="/content/Irodori-TTS/outputs",
                                     file_count="single",
                                 )
@@ -1800,10 +1866,13 @@ def build_ui() -> gr.Blocks:
                                     variant="secondary",
                                 )
 
-                            with gr.Tab("Google Driveから読み込む"):
-                                gr.Markdown("ColabでGoogle Driveをマウントしている場合はこちらを使います。")
+                            with gr.Tab("Google Drive"):
+                                gr.Markdown(
+                                    "Driveに保存した project.json を読み込みます。先にDriveをマウントしてください。",
+                                    elem_classes=["project-help"],
+                                )
                                 project_json_drive = gr.FileExplorer(
-                                    label="Drive内のproject.jsonを選択",
+                                    label="Drive内のproject.json",
                                     root_dir="/content/drive/MyDrive",
                                     file_count="single",
                                 )
@@ -1812,10 +1881,13 @@ def build_ui() -> gr.Blocks:
                                     variant="secondary",
                                 )
 
-                            with gr.Tab("アップロードして読み込む"):
-                                gr.Markdown("PCやスマホから `project.json` をアップロードして読み込む場合はこちらを使います。")
+                            with gr.Tab("アップロード"):
+                                gr.Markdown(
+                                    "PCやスマホにある project.json を読み込みます。",
+                                    elem_classes=["project-help"],
+                                )
                                 project_json_file = gr.File(
-                                    label="project.jsonをアップロード",
+                                    label="project.json",
                                     file_types=[".json"],
                                     type="filepath",
                                 )
@@ -2070,7 +2142,7 @@ def build_ui() -> gr.Blocks:
         generate_btn.click(
             _generate_all_chunks_for_ui,
             inputs=[
-                project_name,
+                manual_project_name,
                 script_text,
                 split_method,
                 max_chars,
@@ -2144,7 +2216,7 @@ def build_ui() -> gr.Blocks:
             _load_project_for_ui,
             inputs=[load_project_dropdown],
             outputs=[
-                project_name,
+                manual_project_name,
                 script_text,
                 split_method,
                 max_chars,
@@ -2163,7 +2235,7 @@ def build_ui() -> gr.Blocks:
             _load_project_from_json_file_for_ui,
             inputs=[project_json_file],
             outputs=[
-                project_name,
+                manual_project_name,
                 script_text,
                 split_method,
                 max_chars,
@@ -2182,7 +2254,7 @@ def build_ui() -> gr.Blocks:
             _load_project_from_json_file_for_ui,
             inputs=[project_json_outputs],
             outputs=[
-                project_name,
+                manual_project_name,
                 script_text,
                 split_method,
                 max_chars,
@@ -2201,7 +2273,7 @@ def build_ui() -> gr.Blocks:
             _load_project_from_json_file_for_ui,
             inputs=[project_json_drive],
             outputs=[
-                project_name,
+                manual_project_name,
                 script_text,
                 split_method,
                 max_chars,
