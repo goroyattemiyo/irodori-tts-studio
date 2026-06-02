@@ -17,7 +17,22 @@ import gradio as gr
 
 APP_TITLE = "IrodoriTTS 連続生成GUI"
 DEFAULT_HF_CHECKPOINT = "Aratako/Irodori-TTS-500M-v2"
-OUTPUT_ROOT = Path("outputs")
+def _detect_project_root() -> Path:
+    """
+    app/irodori_app.py から起動しても、リポジトリ直下から起動しても、
+    infer.py があるプロジェクトルートを安定して取得する。
+    """
+    here = Path(__file__).resolve().parent
+    if (here / "infer.py").is_file():
+        return here
+    if (here.parent / "infer.py").is_file():
+        return here.parent
+    return here
+
+
+PROJECT_ROOT = _detect_project_root()
+OUTPUT_ROOT = PROJECT_ROOT / "outputs"
+OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
 MAX_CHUNKS = 20
 _CANCEL_REQUESTED = False
 
@@ -594,7 +609,7 @@ textarea {
 """
 
 def _project_root() -> Path:
-    return Path(__file__).resolve().parent
+    return PROJECT_ROOT
 
 
 def _startupinfo() -> subprocess.STARTUPINFO | None:
@@ -1023,6 +1038,18 @@ def _show_selected_drive_reference(ref_drive_audio: object) -> tuple[str, str]:
         ]
     )
     return message, selected
+
+
+def _drive_root_for_file_explorer() -> str:
+    """
+    Google Drive未マウント時に FileExplorer が root_dir 不存在で落ちるのを避ける。
+    Driveが未マウントなら /content を表示し、マウント後は /content/drive/MyDrive を使う。
+    """
+    drive_root = Path("/content/drive/MyDrive")
+    if drive_root.is_dir():
+        return str(drive_root)
+    content_root = Path("/content")
+    return str(content_root if content_root.is_dir() else PROJECT_ROOT)
 
 
 def _resolve_reference_audio(
@@ -1786,6 +1813,8 @@ def _generate_one_chunk(
 
 
 def build_ui() -> gr.Blocks:
+    OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
+
     with gr.Blocks(css=CUSTOM_CSS, theme=gr.themes.Base(), title=APP_TITLE) as demo:
         project_dir_state = gr.State(value=None)
 
@@ -1858,7 +1887,7 @@ def build_ui() -> gr.Blocks:
                                 )
                                 project_json_outputs = gr.FileExplorer(
                                     label="project.jsonを選択",
-                                    root_dir="/content/Irodori-TTS/outputs",
+                                    root_dir=str(OUTPUT_ROOT),
                                     file_count="single",
                                 )
                                 load_project_from_outputs_btn = gr.Button(
@@ -1873,7 +1902,7 @@ def build_ui() -> gr.Blocks:
                                 )
                                 project_json_drive = gr.FileExplorer(
                                     label="Drive内のproject.json",
-                                    root_dir="/content/drive/MyDrive",
+                                    root_dir=_drive_root_for_file_explorer(),
                                     file_count="single",
                                 )
                                 load_project_from_drive_btn = gr.Button(
@@ -1956,7 +1985,7 @@ def build_ui() -> gr.Blocks:
                         gr.Markdown("先にColabのGoogle Driveマウントセルを実行してください。")
                         ref_drive_audio = gr.FileExplorer(
                             label="Drive内の参照音声",
-                            root_dir="/content/drive/MyDrive",
+                            root_dir=_drive_root_for_file_explorer(),
                             file_count="single",
                         )
                         use_drive_ref_btn = gr.Button(
