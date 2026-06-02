@@ -1268,6 +1268,39 @@ def _ffmpeg_concat_escape(path: Path) -> str:
     return str(path.resolve()).replace("\\", "/").replace("'", r"'\''")
 
 
+def _export_episode_to_drive(project_dir: Path, episode_wav: Path, episode_mp3: Path | None) -> list[str]:
+    """
+    結合後の完成音声だけをGoogle Driveへコピーする。
+    chunk生成中の一時ファイルはColab内outputsに残す。
+    """
+    drive_root = Path("/content/drive/MyDrive")
+    if not drive_root.is_dir():
+        return [
+            "Drive保存: スキップ",
+            "理由: /content/drive/MyDrive が見つかりません。Google Drive未マウントの可能性があります。",
+        ]
+
+    export_dir = drive_root / "IrodoriTTS" / "exports" / project_dir.name
+    export_dir.mkdir(parents=True, exist_ok=True)
+
+    copied: list[str] = []
+
+    if episode_wav.is_file():
+        target_wav = export_dir / episode_wav.name
+        shutil.copy2(episode_wav, target_wav)
+        copied.append(f"Drive保存 WAV: {target_wav}")
+
+    if episode_mp3 is not None and episode_mp3.is_file():
+        target_mp3 = export_dir / episode_mp3.name
+        shutil.copy2(episode_mp3, target_mp3)
+        copied.append(f"Drive保存 MP3: {target_mp3}")
+
+    if not copied:
+        return ["Drive保存: コピー対象の完成音声が見つかりませんでした。"]
+
+    return copied
+
+
 def _merge_chunks(
     project_dir_str: str | None,
     mp3_bitrate: int,
@@ -1330,6 +1363,8 @@ def _merge_chunks(
         raise gr.Error("ffmpegは正常終了しましたが、episode.wavが見つかりませんでした。")
 
     episode_mp3, mp3_msg = _wav_to_mp3(episode_wav, int(mp3_bitrate))
+    drive_export_lines = _export_episode_to_drive(project_dir, episode_wav, episode_mp3)
+
     log = "\n".join(
         [
             "エピソード結合が完了しました。",
@@ -1338,6 +1373,9 @@ def _merge_chunks(
             f"chunk_list: {chunk_list.resolve()}",
             f"episode_wav: {episode_wav.resolve()}",
             mp3_msg,
+            "",
+            "--- Drive export ---",
+            *drive_export_lines,
             "",
             "--- ffmpeg stdout ---",
             (result.stdout or "").strip(),
