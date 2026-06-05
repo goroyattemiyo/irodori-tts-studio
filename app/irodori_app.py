@@ -610,6 +610,587 @@ textarea {
 
 """
 
+
+CUSTOM_CSS += r"""
+
+/* ===== Irodori Responsive UI v1 ===== */
+/* 目的:
+   - PC版: カード感・立体ボタン・余白・ログ視認性を改善
+   - スマホ版: 縦スクロール前提で、押しやすいボタンと読みやすいカードにする
+   - 既存CSSは消さず、後勝ちで上書きする
+*/
+
+/* ---------- Design Tokens ---------- */
+:root {
+    --iro-bg: #f6f7f1;
+    --iro-panel: #ffffff;
+    --iro-panel-soft: #fbfcf7;
+    --iro-text: #15171c;
+    --iro-subtext: #5d6470;
+    --iro-muted: #8c929c;
+    --iro-border: #dfe3e8;
+    --iro-border-strong: #cfd6dd;
+    --iro-accent: #bcd20e;
+    --iro-accent-2: #d8ee36;
+    --iro-accent-dark: #879700;
+    --iro-danger: #d93025;
+    --iro-warning: #f59e0b;
+    --iro-blue: #2563eb;
+    --iro-green: #18a058;
+    --iro-radius-sm: 10px;
+    --iro-radius-md: 14px;
+    --iro-radius-lg: 20px;
+    --iro-shadow-sm: 0 2px 8px rgba(18, 24, 38, 0.06);
+    --iro-shadow-md: 0 10px 28px rgba(18, 24, 38, 0.10);
+    --iro-shadow-btn: 0 5px 0 rgba(82, 92, 0, 0.50), 0 12px 22px rgba(188, 210, 14, 0.30);
+}
+
+/* ---------- Base ---------- */
+body,
+.gradio-container {
+    background:
+        radial-gradient(circle at 8% 0%, rgba(188, 210, 14, 0.16), transparent 28%),
+        radial-gradient(circle at 94% 3%, rgba(18, 24, 38, 0.06), transparent 24%),
+        var(--iro-bg) !important;
+    color: var(--iro-text) !important;
+}
+
+.gradio-container {
+    max-width: 1280px !important;
+    padding: 22px 26px 72px !important;
+}
+
+/* ---------- Header ---------- */
+.hero {
+    background:
+        linear-gradient(135deg, #ffffff 0%, #fbfcf0 100%) !important;
+    border: 1px solid rgba(188, 210, 14, 0.35) !important;
+    border-radius: 24px !important;
+    padding: 26px 30px !important;
+    margin: 8px 0 22px !important;
+    box-shadow: var(--iro-shadow-md) !important;
+    position: relative !important;
+}
+
+.hero h1,
+.hero h2,
+.hero h3,
+.hero p,
+.hero .prose,
+.hero .markdown {
+    color: var(--iro-text) !important;
+}
+
+.hero h1 {
+    font-size: clamp(30px, 3vw, 46px) !important;
+    line-height: 1.12 !important;
+    letter-spacing: -0.04em !important;
+    font-weight: 900 !important;
+    margin-bottom: 6px !important;
+}
+
+.hero p {
+    color: var(--iro-subtext) !important;
+    font-size: 15px !important;
+    line-height: 1.7 !important;
+}
+
+/* ---------- Cards ---------- */
+.studio-card,
+.input-subcard,
+.gr-accordion,
+.gr-group,
+.gr-box,
+.gr-panel {
+    background: rgba(255, 255, 255, 0.94) !important;
+    border: 1px solid var(--iro-border) !important;
+    border-radius: var(--iro-radius-lg) !important;
+    box-shadow: var(--iro-shadow-sm) !important;
+}
+
+.studio-card {
+    padding: 22px 24px !important;
+    margin: 16px 0 !important;
+}
+
+.input-subcard {
+    padding: 16px !important;
+}
+
+/* Gradio内部の余計な透明/線を少し整理 */
+.block,
+.form,
+.wrap {
+    border-radius: var(--iro-radius-md) !important;
+}
+
+/* ---------- Section Titles ---------- */
+.section-title h2,
+.section-title h3,
+.gr-markdown h2,
+.gr-markdown h3,
+.gr-markdown h4 {
+    color: var(--iro-text) !important;
+    font-weight: 850 !important;
+    letter-spacing: -0.02em !important;
+    text-transform: none !important;
+    border-bottom: 1px solid var(--iro-border) !important;
+    padding-bottom: 10px !important;
+    margin-bottom: 14px !important;
+}
+
+.section-title h3,
+.gr-markdown h3 {
+    font-size: 20px !important;
+}
+
+.project-help,
+.project-help p,
+.project-help li,
+.gr-markdown p,
+.prose p {
+    color: var(--iro-subtext) !important;
+    font-size: 14px !important;
+    line-height: 1.75 !important;
+}
+
+/* ---------- Labels ---------- */
+label,
+.block label,
+.form label,
+.label-wrap span {
+    color: var(--iro-text) !important;
+    font-weight: 750 !important;
+    font-size: 14px !important;
+    letter-spacing: 0 !important;
+}
+
+/* ---------- Inputs ---------- */
+textarea,
+input[type=text],
+input[type=number],
+select,
+.gr-text-input,
+.gr-input {
+    background: #ffffff !important;
+    color: var(--iro-text) !important;
+    -webkit-text-fill-color: var(--iro-text) !important;
+    border: 1.5px solid var(--iro-border-strong) !important;
+    border-radius: 14px !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.8) !important;
+    font-size: 15px !important;
+}
+
+textarea {
+    line-height: 1.75 !important;
+    min-height: 140px !important;
+}
+
+textarea:focus,
+input[type=text]:focus,
+input[type=number]:focus,
+select:focus {
+    border-color: var(--iro-accent-dark) !important;
+    box-shadow:
+        0 0 0 4px rgba(188, 210, 14, 0.20),
+        inset 0 1px 0 rgba(255,255,255,0.8) !important;
+    outline: none !important;
+}
+
+textarea::placeholder,
+input::placeholder {
+    color: #7f8791 !important;
+}
+
+/* ---------- File / Audio Components ---------- */
+.gr-file,
+.file-preview,
+.upload-container,
+[data-testid="audio"],
+.audio-container,
+.reference-card .wrap {
+    background: #ffffff !important;
+    border: 1.5px solid var(--iro-border) !important;
+    border-radius: 16px !important;
+    box-shadow: var(--iro-shadow-sm) !important;
+}
+
+.reference-card .gr-group,
+.reference-card .input-subcard {
+    min-height: 116px !important;
+}
+
+/* ---------- Buttons common ---------- */
+button {
+    border-radius: 14px !important;
+    font-weight: 850 !important;
+    letter-spacing: 0.01em !important;
+    min-height: 46px !important;
+    transition:
+        transform 0.12s ease,
+        box-shadow 0.12s ease,
+        filter 0.12s ease,
+        background 0.12s ease !important;
+}
+
+/* Primary button: 立体ライム */
+button.primary,
+button.btn-primary,
+.btn-primary button,
+.hero-generate button {
+    background:
+        linear-gradient(180deg, var(--iro-accent-2) 0%, var(--iro-accent) 56%, #a9be00 100%) !important;
+    color: #121500 !important;
+    border: 1px solid #9daf00 !important;
+    box-shadow: var(--iro-shadow-btn) !important;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.45) !important;
+}
+
+button.primary:hover,
+button.btn-primary:hover,
+.btn-primary button:hover,
+.hero-generate button:hover {
+    filter: brightness(1.03) saturate(1.08) !important;
+    transform: translateY(-1px) !important;
+    box-shadow:
+        0 6px 0 rgba(82, 92, 0, 0.54),
+        0 16px 28px rgba(188, 210, 14, 0.36) !important;
+}
+
+button.primary:active,
+button.btn-primary:active,
+.btn-primary button:active,
+.hero-generate button:active {
+    transform: translateY(4px) !important;
+    box-shadow:
+        0 1px 0 rgba(82, 92, 0, 0.55),
+        0 6px 12px rgba(188, 210, 14, 0.28) !important;
+}
+
+/* Secondary button */
+button.secondary {
+    background: linear-gradient(180deg, #ffffff 0%, #f3f5f0 100%) !important;
+    color: var(--iro-text) !important;
+    border: 1.5px solid var(--iro-border-strong) !important;
+    box-shadow: 0 4px 0 rgba(151, 158, 166, 0.35), 0 10px 20px rgba(18, 24, 38, 0.08) !important;
+}
+
+button.secondary:hover {
+    border-color: var(--iro-accent-dark) !important;
+    background: linear-gradient(180deg, #ffffff 0%, #fbffe8 100%) !important;
+    color: var(--iro-text) !important;
+    transform: translateY(-1px) !important;
+}
+
+button.secondary:active {
+    transform: translateY(3px) !important;
+    box-shadow: 0 1px 0 rgba(151, 158, 166, 0.35), 0 4px 10px rgba(18, 24, 38, 0.08) !important;
+}
+
+/* Danger / stop */
+.danger-button button,
+button.danger-button {
+    background: linear-gradient(180deg, #ff6b61 0%, var(--iro-danger) 100%) !important;
+    color: #ffffff !important;
+    border: 1px solid #b3261e !important;
+    box-shadow: 0 4px 0 #9f1f18, 0 12px 20px rgba(217, 48, 37, 0.20) !important;
+}
+
+/* ---------- Tabs ---------- */
+.tab-nav,
+.tabs > div:first-child,
+[role="tablist"] {
+    background: #ffffff !important;
+    border: 1px solid var(--iro-border) !important;
+    border-radius: 16px !important;
+    padding: 5px !important;
+    box-shadow: var(--iro-shadow-sm) !important;
+}
+
+[role="tab"],
+button[role="tab"],
+.tab-nav button {
+    color: var(--iro-subtext) !important;
+    border-radius: 12px !important;
+    min-height: 40px !important;
+    border: none !important;
+    background: transparent !important;
+}
+
+[role="tab"][aria-selected="true"],
+button[role="tab"][aria-selected="true"],
+.tab-nav button.selected {
+    background: rgba(188, 210, 14, 0.22) !important;
+    color: var(--iro-text) !important;
+    border-bottom: none !important;
+}
+
+/* ---------- Sliders ---------- */
+input[type=range] {
+    accent-color: var(--iro-accent) !important;
+}
+
+input[type=range]::-webkit-slider-runnable-track {
+    background: linear-gradient(90deg, var(--iro-accent), #dce989) !important;
+    height: 6px !important;
+    border-radius: 999px !important;
+}
+
+input[type=range]::-webkit-slider-thumb {
+    background: var(--iro-accent) !important;
+    width: 22px !important;
+    height: 22px !important;
+    border-radius: 50% !important;
+    border: 3px solid #ffffff !important;
+    box-shadow: 0 3px 10px rgba(82, 92, 0, 0.35) !important;
+}
+
+/* ---------- Output / Audio result areas ---------- */
+.gr-audio,
+.gr-audio .wrap {
+    border-radius: 16px !important;
+}
+
+audio {
+    width: 100% !important;
+}
+
+/* ---------- Logs ---------- */
+.log-area textarea,
+.model-status textarea {
+    background: #101318 !important;
+    color: #d8ee36 !important;
+    -webkit-text-fill-color: #d8ee36 !important;
+    border: 1px solid #293100 !important;
+    border-radius: 16px !important;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace !important;
+    font-size: 13px !important;
+    line-height: 1.7 !important;
+    box-shadow: inset 0 0 0 1px rgba(216,238,54,0.06), var(--iro-shadow-sm) !important;
+}
+
+/* ---------- Toast / notification hint ----------
+   gr.Info / gr.Warning 自体はGradio側UIなので細部は環境依存。
+   ここでは被る可能性のある要素を読みやすくする。
+*/
+.toast,
+.notification,
+.alert {
+    border-radius: 16px !important;
+}
+
+/* ---------- Desktop Layout Polish ---------- */
+@media (min-width: 901px) {
+    .gradio-container {
+        padding-left: 32px !important;
+        padding-right: 32px !important;
+    }
+
+    .studio-card {
+        padding: 24px 28px !important;
+    }
+
+    .hero-generate button,
+    .btn-primary button {
+        min-height: 58px !important;
+        font-size: 18px !important;
+    }
+
+    /* 横並び要素の詰まり緩和 */
+    .gr-row {
+        gap: 16px !important;
+    }
+
+    .gr-column {
+        gap: 14px !important;
+    }
+}
+
+/* ---------- Mobile Responsive ---------- */
+@media (max-width: 900px) {
+    body,
+    .gradio-container {
+        background: #f7f8f3 !important;
+    }
+
+    .gradio-container {
+        max-width: 100% !important;
+        padding: 12px 12px 92px !important;
+    }
+
+    .hero {
+        border-radius: 22px !important;
+        padding: 20px 18px !important;
+        margin: 8px 0 14px !important;
+    }
+
+    .hero h1 {
+        font-size: 28px !important;
+        line-height: 1.12 !important;
+    }
+
+    .hero p {
+        font-size: 13px !important;
+    }
+
+    .studio-card,
+    .input-subcard,
+    .gr-accordion,
+    .gr-group,
+    .gr-box,
+    .gr-panel {
+        border-radius: 20px !important;
+    }
+
+    .studio-card {
+        padding: 18px 16px !important;
+        margin: 12px 0 !important;
+    }
+
+    .section-title h2,
+    .section-title h3,
+    .gr-markdown h2,
+    .gr-markdown h3 {
+        font-size: 21px !important;
+        line-height: 1.35 !important;
+        padding-bottom: 10px !important;
+        margin-bottom: 12px !important;
+    }
+
+    .project-help,
+    .project-help p,
+    .project-help li,
+    .gr-markdown p,
+    .prose p {
+        font-size: 14px !important;
+        line-height: 1.7 !important;
+    }
+
+    label,
+    .block label,
+    .form label,
+    .label-wrap span {
+        font-size: 14px !important;
+    }
+
+    textarea,
+    input[type=text],
+    input[type=number],
+    select {
+        font-size: 16px !important;
+        border-radius: 15px !important;
+    }
+
+    textarea {
+        min-height: 180px !important;
+        line-height: 1.8 !important;
+    }
+
+    button {
+        width: 100% !important;
+        min-height: 54px !important;
+        font-size: 16px !important;
+        border-radius: 16px !important;
+    }
+
+    .hero-generate button,
+    .btn-primary button {
+        min-height: 64px !important;
+        font-size: 19px !important;
+        border-radius: 18px !important;
+    }
+
+    /* GradioのRowをスマホでは基本縦積みにする */
+    .gr-row {
+        flex-direction: column !important;
+        gap: 12px !important;
+    }
+
+    .gr-row > *,
+    .gr-column,
+    .gr-column > * {
+        min-width: 100% !important;
+        width: 100% !important;
+    }
+
+    /* 参照音声などカードはタップしやすく */
+    .reference-card .input-subcard,
+    .reference-card .gr-audio,
+    .reference-card .gr-file {
+        min-height: 126px !important;
+    }
+
+    /* Audio出力を縦積みで見やすく */
+    .gr-audio,
+    .gr-file {
+        width: 100% !important;
+    }
+
+    /* 詳細設定はスマホで詰まりやすいので余白確保 */
+    .gr-accordion {
+        padding: 14px !important;
+    }
+
+    /* タブは横スクロール気味でも押しやすく */
+    [role="tablist"],
+    .tab-nav,
+    .tabs > div:first-child {
+        overflow-x: auto !important;
+        display: flex !important;
+        gap: 6px !important;
+    }
+
+    [role="tab"],
+    button[role="tab"],
+    .tab-nav button {
+        min-width: max-content !important;
+        padding: 10px 14px !important;
+    }
+
+    .log-area textarea {
+        min-height: 220px !important;
+        font-size: 13px !important;
+    }
+}
+
+/* ---------- Small Mobile ---------- */
+@media (max-width: 520px) {
+    .gradio-container {
+        padding: 10px 10px 86px !important;
+    }
+
+    .hero h1 {
+        font-size: 24px !important;
+    }
+
+    .studio-card {
+        padding: 16px 14px !important;
+    }
+
+    .section-title h2,
+    .section-title h3,
+    .gr-markdown h2,
+    .gr-markdown h3 {
+        font-size: 19px !important;
+    }
+
+    button {
+        min-height: 52px !important;
+    }
+
+    .hero-generate button,
+    .btn-primary button {
+        min-height: 62px !important;
+        font-size: 18px !important;
+    }
+
+    textarea {
+        min-height: 170px !important;
+    }
+}
+
+"""
+
 def _project_root() -> Path:
     return PROJECT_ROOT
 
