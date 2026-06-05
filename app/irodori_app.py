@@ -625,6 +625,7 @@ def _startupinfo() -> subprocess.STARTUPINFO | None:
 def _request_cancel() -> str:
     global _CANCEL_REQUESTED
     _CANCEL_REQUESTED = True
+    gr.Info("生成中断リクエストを受け付けました。")
     return "中断リクエストを受け付けました。現在のsubprocessを停止中です..."
 
 
@@ -846,6 +847,8 @@ def _save_project_for_ui(
         encoding="utf-8",
     )
 
+    gr.Info("プロジェクトを書き出しました。JSONファイルをダウンロードしてください。")
+
     log = "\n".join(
         [
             "プロジェクトを書き出しました。",
@@ -937,6 +940,8 @@ def _load_project_from_json_file_for_ui(project_json_file: str | None) -> tuple[
         log_lines.append(
             "  ※参照音声は復元されていません。必要な場合は再設定してください。"
         )
+
+    gr.Info("プロジェクトJSONを読み込みました。")
 
     return (
         data.get("project_name", ""),
@@ -1064,6 +1069,7 @@ def _show_selected_drive_reference(ref_drive_audio: object) -> tuple[str, str]:
             f"パス: {selected}",
         ]
     )
+    gr.Info("Driveの参照音声を設定しました。")
     return message, selected
 
 
@@ -1193,16 +1199,25 @@ def _check_environment() -> str:
     )
 
 
+
+def _check_environment_for_ui() -> str:
+    result = _check_environment()
+    gr.Info("環境チェックが完了しました。")
+    return result
+
+
+
 def _install_pydub() -> str:
     result = _run_command([sys.executable, "-m", "pip", "install", "--user", "pydub"])
     if result.returncode != 0:
-        return "pydubのインストールに失敗しました。\n\n" + (result.stderr or result.stdout)
+        raise gr.Error("pydubのインストールに失敗しました。\n\n" + (result.stderr or result.stdout))
+    gr.Info("pydubをインストールしました。")
     return "pydubをインストールしました。反映されない場合はGUIを再起動してください。"
 
 
 def _install_ffmpeg() -> str:
     if shutil.which("winget") is None:
-        return (
+        raise gr.Error(
             "wingetが見つかりません。Windows 10/11のApp Installerを更新するか、"
             "ffmpegを手動で導入してください。"
         )
@@ -1219,7 +1234,8 @@ def _install_ffmpeg() -> str:
         ]
     )
     if result.returncode != 0:
-        return "ffmpegのインストールに失敗しました。\n\n" + (result.stderr or result.stdout)
+        raise gr.Error("ffmpegのインストールに失敗しました。\n\n" + (result.stderr or result.stdout))
+    gr.Info("ffmpegをインストールしました。")
     return "ffmpegをインストールしました。PATH反映のため、GUIを再起動してください。"
 
 
@@ -1234,6 +1250,7 @@ def _load_model(hf_checkpoint: str) -> str:
     if result.returncode != 0:
         raise gr.Error("モデル準備に失敗しました。\n\n" + (result.stderr or result.stdout))
     model_path = (result.stdout or "").strip().splitlines()[-1]
+    gr.Info("モデルファイルを準備しました。")
     return (
         "モデルファイルを準備しました。\n"
         f"checkpoint: {checkpoint}\n"
@@ -1279,6 +1296,7 @@ def _convert_existing_wav_to_mp3(
     mp3_path, msg = _wav_to_mp3(wav_path, mp3_bitrate)
     if mp3_path is None:
         raise gr.Error(msg)
+    gr.Info("MP3変換が完了しました。")
     return str(mp3_path), msg
 
 
@@ -1390,6 +1408,7 @@ def _merge_chunks(
         raise gr.Error("ffmpegは正常終了しましたが、episode.wavが見つかりませんでした。")
 
     episode_mp3, mp3_msg = _wav_to_mp3(episode_wav, int(mp3_bitrate))
+    gr.Info("エピソード結合が完了しました。")
 
     log = "\n".join(
         [
@@ -1655,6 +1674,10 @@ def _generate_all_chunks(
     if skipped_count:
         summary += f"（うち {skipped_count} 件は生成済みのためスキップ）"
     log_lines.extend(["", summary])
+    if ok_count == total:
+        gr.Info("全チャンク生成が完了しました。")
+    else:
+        gr.Warning(f"全チャンク生成が完了しましたが、成功は {ok_count}/{total} 件です。ログを確認してください。")
     return results, "\n".join(log_lines)
 
 
@@ -1776,6 +1799,7 @@ def _regenerate_chunk(
             ref_summary,
         ]
     )
+    gr.Info(f"チャンク {int(chunk_index):02d} を再生成しました。")
     return (
         f"### チャンク {int(chunk_index)} ✅ 再生成済み",
         text,
@@ -1855,6 +1879,7 @@ def _generate_one_chunk(
 
     mp3_path, mp3_msg = _wav_to_mp3(output_wav, int(mp3_bitrate))
     progress(1.0, desc="チャンク 1/1 完了")
+    gr.Info("1チャンク生成が完了しました。")
     log = "\n".join(
         [
             "Phase 2: 1チャンク生成が完了しました。",
@@ -2317,7 +2342,7 @@ def build_ui() -> gr.Blocks:
             outputs=[selected_drive_ref_status, ref_path_text],
             queue=False,
         )
-        check_env_btn.click(_check_environment, outputs=[env_status])
+        check_env_btn.click(_check_environment_for_ui, outputs=[env_status])
         install_pydub_btn.click(_install_pydub, outputs=[env_status])
         install_ffmpeg_btn.click(_install_ffmpeg, outputs=[env_status])
 
