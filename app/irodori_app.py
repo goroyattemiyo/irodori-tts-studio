@@ -33,6 +33,8 @@ def _detect_project_root() -> Path:
 PROJECT_ROOT = _detect_project_root()
 OUTPUT_ROOT = PROJECT_ROOT / "outputs"
 OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
+DOWNLOAD_ROOT = PROJECT_ROOT / "project_exports"
+DOWNLOAD_ROOT.mkdir(parents=True, exist_ok=True)
 MAX_CHUNKS = 20
 _CANCEL_REQUESTED = False
 
@@ -810,33 +812,53 @@ def _save_project_for_ui(
     seed: int,
     mp3_bitrate: int,
     hf_checkpoint: str,
-) -> tuple[object, str]:
-    """手動「💾 プロジェクト保存」ボタンのハンドラ。"""
-    if not str(script_text or "").strip():
-        raise gr.Error("台本が空です。保存する内容がありません。")
+) -> tuple[str | None, str]:
+    """
+    手動「プロジェクトを書き出す」ボタンのハンドラ。
 
-    project_dir = _resolve_project_dir(project_name, force_new=False)
-    target = _save_project_json(
-        project_dir,
-        project_name=project_name,
-        script_text=script_text,
-        split_method=split_method,
-        max_chars=max_chars,
-        ref_path_text=ref_path_text,
-        cfg_scale_speaker=cfg_scale_speaker,
-        cfg_scale_text=cfg_scale_text,
-        num_steps=num_steps,
-        seed=seed,
-        mp3_bitrate=mp3_bitrate,
-        hf_checkpoint=hf_checkpoint,
-    )
-    log = (
-        f"プロジェクトを保存しました。\n"
-        f"  {target.resolve()}\n"
-        f"project.json を保存しました。読み込み時はこの project.json を選択してください。"
-    )
-    return gr.update(choices=_list_saved_projects()), log
+    Colab内保存やDrive保存ではなく、ユーザーがローカルにダウンロードできる
+    project JSON を生成して返す。
+    台本が空でも保存できる。
+    """
+    safe_name = _safe_project_name(project_name)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
+    DOWNLOAD_ROOT.mkdir(parents=True, exist_ok=True)
+    target = DOWNLOAD_ROOT / f"{safe_name}_{timestamp}_project.json"
+
+    data = {
+        "saved_at": datetime.now().isoformat(timespec="seconds"),
+        "project_name": project_name or safe_name,
+        "script_text": script_text or "",
+        "split_method": split_method or "auto",
+        "max_chars": int(max_chars),
+        "ref_path_text": ref_path_text or "",
+        "cfg_scale_speaker": float(cfg_scale_speaker),
+        "cfg_scale_text": float(cfg_scale_text),
+        "num_steps": int(num_steps),
+        "seed": int(seed),
+        "mp3_bitrate": int(mp3_bitrate),
+        "hf_checkpoint": hf_checkpoint or DEFAULT_HF_CHECKPOINT,
+    }
+
+    target.write_text(
+        json.dumps(data, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+    log = "\n".join(
+        [
+            "プロジェクトを書き出しました。",
+            "下に表示されたJSONファイルをダウンロードしてください。",
+            "",
+            f"file: {target.resolve()}",
+            "",
+            "※このJSONファイルは、次回の作業再開に必要です。",
+            "※台本が空の場合も、設定だけ保存できます。",
+        ]
+    )
+
+    return str(target), log
 
 def _load_project_for_ui(selected_dir: str | None) -> tuple[object, ...]:
     """「📂 プロジェクト読込」ハンドラ。台本・設定を画面に復元する。"""
@@ -884,31 +906,37 @@ def _load_project_for_ui(selected_dir: str | None) -> tuple[object, ...]:
 
 
 def _load_project_from_json_file_for_ui(project_json_file: str | None) -> tuple[object, ...]:
-    """project.json ファイル選択からプロジェクトを読み込む。"""
+    """アップロードされたプロジェクトJSONからプロジェクトを読み込む。"""
     if not project_json_file or not str(project_json_file).strip():
-        raise gr.Error("読み込む project.json を選択してください。")
+        raise gr.Error("読み込むプロジェクトJSONを選択してください。")
 
     json_path = Path(str(project_json_file).strip().strip('"')).expanduser()
     if not json_path.is_file():
-        raise gr.Error(f"project.json が見つかりません: {json_path}")
-    if json_path.name.lower() != PROJECT_FILE:
-        raise gr.Error("project.json を選択してください。")
+        raise gr.Error(f"JSONファイルが見つかりません: {json_path}")
+    if json_path.suffix.lower() != ".json":
+        raise gr.Error("JSONファイルを選択してください。")
+
+    try:
+        data = json.loads(json_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as exc:
+        raise gr.Error(f"JSONファイルを読み込めませんでした: {json_path}\n{exc}")
 
     project_dir = json_path.parent
-    data = _load_project_json(project_dir)
-    if not data:
-        raise gr.Error(f"project.json を読み込めませんでした: {json_path}")
-
     restored_ref = project_dir / "reference.wav"
     restored_ref_text = str(restored_ref.resolve()) if restored_ref.is_file() else data.get("ref_path_text", "")
 
     existing_wav = sorted(project_dir.glob("chunk_*.wav"))
     existing_mp3 = sorted(project_dir.glob("chunk_*.mp3"))
     log_lines = [
-        f"プロジェクトを読み込みました: {project_dir.resolve()}",
+        f"プロジェクトを読み込みました: {json_path.name}",
         f"  保存日時: {data.get('saved_at', '不明')}",
         f"  生成済みWAV: {len(existing_wav)}件 / MP3: {len(existing_mp3)}件",
     ]
+
+    if not restored_ref_text:
+        log_lines.append(
+            "  ※参照音声は復元されていません。必要な場合は再設定してください。"
+        )
 
     return (
         data.get("project_name", ""),
@@ -922,9 +950,8 @@ def _load_project_from_json_file_for_ui(project_json_file: str | None) -> tuple[
         int(data.get("seed", 42)),
         int(data.get("mp3_bitrate", 192)),
         data.get("hf_checkpoint", DEFAULT_HF_CHECKPOINT),
-        "\\n".join(log_lines),
+        "\n".join(log_lines),
     )
-
 
 def _is_valid_wav(path: Path) -> bool:
     """生成済みWAVとして有効か（存在し、サイズが0より大きい）。"""
@@ -1363,7 +1390,6 @@ def _merge_chunks(
         raise gr.Error("ffmpegは正常終了しましたが、episode.wavが見つかりませんでした。")
 
     episode_mp3, mp3_msg = _wav_to_mp3(episode_wav, int(mp3_bitrate))
-    drive_export_lines = _export_episode_to_drive(project_dir, episode_wav, episode_mp3)
 
     log = "\n".join(
         [
@@ -1374,8 +1400,7 @@ def _merge_chunks(
             f"episode_wav: {episode_wav.resolve()}",
             mp3_msg,
             "",
-            "--- Drive export ---",
-            *drive_export_lines,
+            "※完成音声は画面上のWAV/MP3欄からダウンロードできます。",
             "",
             "--- ffmpeg stdout ---",
             (result.stdout or "").strip(),
@@ -1658,6 +1683,7 @@ def _generate_all_chunks_for_ui(
         ref_path_text=ref_path_text,
         uploaded_audio=uploaded_audio,
         recorded_audio=recorded_audio,
+        ref_drive_audio=ref_drive_audio,
         cfg_scale_speaker=cfg_scale_speaker,
         cfg_scale_text=cfg_scale_text,
         num_steps=num_steps,
@@ -1879,7 +1905,7 @@ def build_ui() -> gr.Blocks:
                     gr.Markdown("### プロジェクト", elem_classes=["section-title"])
                     gr.Markdown(
                         "保存名を入れておくと、生成結果をあとから見つけやすくなります。\n\n"
-                        "生成時に project.json が自動保存されます。再開するときは、その project.json を読み込みます。",
+                        "作業内容をJSONファイルとして書き出します。次回はそのJSONをアップロードすると再開できます。",
                         elem_classes=["project-help"],
                     )
 
@@ -1906,62 +1932,29 @@ def build_ui() -> gr.Blocks:
                             placeholder="例: chapter01_test / sample_voice / note_demo",
                         )
                         save_project_btn = gr.Button(
-                            "💾 今の台本と設定を保存",
+                            "💾 プロジェクトを書き出す",
                             variant="secondary",
+                        )
+                        project_download_file = gr.File(
+                            label="ダウンロード用プロジェクトJSON",
+                            interactive=False,
                         )
 
                     with gr.Group(elem_classes=["studio-card"]):
                         gr.Markdown("#### 2. 読み込み", elem_classes=["section-title"])
                         gr.Markdown(
-                            "以前の続きから作業するときは `project.json` を選びます。",
+                            "前回ダウンロードしたプロジェクトJSONを選ぶと、台本と設定を復元できます。",
                             elem_classes=["project-help"],
                         )
-
-                        with gr.Tabs():
-                            with gr.Tab("Colab内"):
-                                gr.Markdown(
-                                    "このColabで生成したプロジェクトを再開します。",
-                                    elem_classes=["project-help"],
-                                )
-                                project_json_outputs = gr.FileExplorer(
-                                    label="project.jsonを選択",
-                                    root_dir=str(OUTPUT_ROOT),
-                                    file_count="single",
-                                )
-                                load_project_from_outputs_btn = gr.Button(
-                                    "📂 このColab内のproject.jsonから読込",
-                                    variant="secondary",
-                                )
-
-                            with gr.Tab("Google Drive"):
-                                gr.Markdown(
-                                    "Driveに保存した project.json を読み込みます。先にDriveをマウントしてください。",
-                                    elem_classes=["project-help"],
-                                )
-                                project_json_drive = gr.FileExplorer(
-                                    label="Drive内のproject.json",
-                                    root_dir=_drive_root_for_file_explorer(),
-                                    file_count="single",
-                                )
-                                load_project_from_drive_btn = gr.Button(
-                                    "📂 Driveのproject.jsonから読込",
-                                    variant="secondary",
-                                )
-
-                            with gr.Tab("アップロード"):
-                                gr.Markdown(
-                                    "PCやスマホにある project.json を読み込みます。",
-                                    elem_classes=["project-help"],
-                                )
-                                project_json_file = gr.File(
-                                    label="project.json",
-                                    file_types=[".json"],
-                                    type="filepath",
-                                )
-                                load_project_from_json_btn = gr.Button(
-                                    "📂 アップロードしたproject.jsonから読込",
-                                    variant="secondary",
-                                )
+                        project_json_file = gr.File(
+                            label="プロジェクトJSONをアップロード",
+                            file_types=[".json"],
+                            type="filepath",
+                        )
+                        load_project_from_json_btn = gr.Button(
+                            "📂 プロジェクトJSONを読み込む",
+                            variant="secondary",
+                        )
 
                     # 旧イベント互換用。表示しない。
                     load_project_dropdown = gr.Dropdown(
@@ -2237,6 +2230,7 @@ def build_ui() -> gr.Blocks:
                     ref_path_text,
                     uploaded_audio,
                     recorded_audio,
+                    ref_drive_audio,
                     cfg_scale_speaker,
                     cfg_scale_text,
                     num_steps,
@@ -2277,7 +2271,7 @@ def build_ui() -> gr.Blocks:
                 mp3_bitrate,
                 hf_checkpoint,
             ],
-            outputs=[load_project_dropdown, run_log],
+            outputs=[project_download_file, run_log],
         )
         load_project_btn.click(
             _load_project_for_ui,
@@ -2301,44 +2295,6 @@ def build_ui() -> gr.Blocks:
         load_project_from_json_btn.click(
             _load_project_from_json_file_for_ui,
             inputs=[project_json_file],
-            outputs=[
-                manual_project_name,
-                script_text,
-                split_method,
-                max_chars,
-                ref_path_text,
-                cfg_scale_speaker,
-                cfg_scale_text,
-                num_steps,
-                seed,
-                mp3_bitrate,
-                hf_checkpoint,
-                run_log,
-            ],
-        )
-
-        load_project_from_outputs_btn.click(
-            _load_project_from_json_file_for_ui,
-            inputs=[project_json_outputs],
-            outputs=[
-                manual_project_name,
-                script_text,
-                split_method,
-                max_chars,
-                ref_path_text,
-                cfg_scale_speaker,
-                cfg_scale_text,
-                num_steps,
-                seed,
-                mp3_bitrate,
-                hf_checkpoint,
-                run_log,
-            ],
-        )
-
-        load_project_from_drive_btn.click(
-            _load_project_from_json_file_for_ui,
-            inputs=[project_json_drive],
             outputs=[
                 manual_project_name,
                 script_text,
