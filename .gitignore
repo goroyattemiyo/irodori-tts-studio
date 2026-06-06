@@ -235,3 +235,6 @@ patch_*.py
 # OS files
 .DS_Store
 Thumbs.db
+
+# Runtime exports
+project_exports/

@@ -89,11 +89,21 @@ $("importProjectBtn").addEventListener("click", async () => {
   }
 
   const p = data.data;
-  $("projectName").value = p.project_name || "";
-  $("scriptText").value = p.script_text || "";
+  $("projectName").value = p.project_name ?? "";
+  $("scriptText").value = p.script_text ?? "";
   $("scriptCount").textContent = `${$("scriptText").value.length}文字`;
-  $("maxChars").value = p.max_chars || 150;
+
+  const splitMethod = p.split_method ?? "auto";
+  const splitRadio = document.querySelector(`input[name="splitMethod"][value="${splitMethod}"]`);
+  if (splitRadio) splitRadio.checked = true;
+
+  $("maxChars").value = p.max_chars ?? 150;
   $("maxCharsValue").textContent = $("maxChars").value;
+  $("cfgSpeaker").value = p.cfg_scale_speaker ?? 7.0;
+  $("cfgText").value = p.cfg_scale_text ?? 2.5;
+  $("numSteps").value = p.num_steps ?? 60;
+  $("seed").value = p.seed ?? -1;
+  $("mp3Bitrate").value = p.mp3_bitrate ?? 192;
 
   toast("JSONを読み込みました", "プロジェクト設定を復元しました。");
   log("プロジェクトJSONを読み込みました。");
