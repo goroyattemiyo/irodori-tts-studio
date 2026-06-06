@@ -167,6 +167,59 @@ async def chunks_preview(
     )
 
 
+
+@app.post("/api/generate")
+async def generate_audio(
+    project_name: str = Form("irodori_project"),
+    script_text: str = Form(""),
+    split_method: str = Form("auto"),
+    max_chars: int = Form(150),
+    cfg_scale_speaker: float = Form(7.0),
+    cfg_scale_text: float = Form(2.5),
+    num_steps: int = Form(60),
+    seed: int = Form(42),
+    mp3_bitrate: int = Form(192),
+) -> JSONResponse:
+    """Web UIから実生成を実行する。まずは参照音声なしで既存生成処理へ接続する。"""
+    try:
+        from app.irodori_app import DEFAULT_HF_CHECKPOINT, _generate_all_chunks
+
+        chunks, log = _generate_all_chunks(
+            project_name=project_name,
+            script_text=script_text,
+            split_method=split_method,
+            max_chars=int(max_chars),
+            ref_path_text=None,
+            uploaded_audio=None,
+            recorded_audio=None,
+            ref_drive_audio=None,
+            cfg_scale_speaker=float(cfg_scale_speaker),
+            cfg_scale_text=float(cfg_scale_text),
+            num_steps=int(num_steps),
+            seed=int(seed),
+            mp3_bitrate=int(mp3_bitrate),
+            hf_checkpoint=DEFAULT_HF_CHECKPOINT,
+        )
+    except Exception as exc:
+        return JSONResponse(
+            {
+                "ok": False,
+                "message": f"生成に失敗しました: {exc}",
+            },
+            status_code=500,
+        )
+
+    ok_count = sum(1 for item in chunks if item.get("status") == "ok")
+    return JSONResponse(
+        {
+            "ok": ok_count == len(chunks),
+            "message": f"生成完了: {ok_count}/{len(chunks)} チャンク成功",
+            "chunks": chunks,
+            "log": log,
+        }
+    )
+
+
 @app.post("/api/generate/mock")
 async def generate_mock(script_text: str = Form("")) -> JSONResponse:
     # まずはUI接続確認用。実生成接続は次フェーズ。

@@ -19,14 +19,42 @@ APP_TITLE = "IrodoriTTS 連続生成GUI"
 DEFAULT_HF_CHECKPOINT = "Aratako/Irodori-TTS-500M-v2"
 def _detect_project_root() -> Path:
     """
-    app/irodori_app.py から起動しても、リポジトリ直下から起動しても、
-    infer.py があるプロジェクトルートを安定して取得する。
+    infer.py がある Irodori-TTS 本体のルートを取得する。
+
+    優先順:
+    1. 環境変数 IRODORI_TTS_ROOT
+    2. 起動位置周辺
+    3. 自宅Windows想定: C:/ai/Irodori-TTS
+    4. Colab想定: /content/Irodori-TTS
     """
     here = Path(__file__).resolve().parent
-    if (here / "infer.py").is_file():
-        return here
-    if (here.parent / "infer.py").is_file():
-        return here.parent
+
+    candidates: list[Path] = []
+
+    env_root = os.environ.get("IRODORI_TTS_ROOT", "").strip().strip('"')
+    if env_root:
+        candidates.append(Path(env_root).expanduser())
+
+    candidates.extend(
+        [
+            here,
+            here.parent,
+            Path.cwd(),
+            Path("C:/ai/Irodori-TTS"),
+            Path("/content/Irodori-TTS"),
+        ]
+    )
+
+    seen: set[str] = set()
+    for candidate in candidates:
+        resolved = candidate.resolve()
+        key = str(resolved)
+        if key in seen:
+            continue
+        seen.add(key)
+        if (resolved / "infer.py").is_file():
+            return resolved
+
     return here
 
 
