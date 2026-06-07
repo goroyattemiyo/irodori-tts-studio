@@ -1131,7 +1131,7 @@ def _generate_all_chunks(
                 cfg_scale_speaker=cfg_scale_speaker,
                 cfg_scale_text=cfg_scale_text,
                 num_steps=num_steps,
-                seed=int(seed) + index - 1,
+                seed=int(seed),
                 hf_checkpoint=checkpoint,
             )
             if _is_cancel_requested():
