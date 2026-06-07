@@ -531,3 +531,9 @@ button:active,
     max-height: 280px;
   }
 }
+
+.log-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}

@@ -286,6 +286,18 @@ $("cancelBtn").addEventListener("click", () => {
   log("生成中断リクエストを受け付けました。");
 });
 
+$("copyLogBtn").addEventListener("click", async () => {
+  const text = $("logOutput").textContent || "";
+  try {
+    await navigator.clipboard.writeText(text);
+    toast("ログをコピーしました");
+    log("ログをクリップボードにコピーしました。");
+  } catch (err) {
+    toast("ログコピー失敗", "ブラウザの制限でコピーできませんでした。");
+    log(`ログコピー失敗: ${err.message || err}`);
+  }
+});
+
 $("clearLogBtn").addEventListener("click", () => {
   $("logOutput").textContent = "[system] log cleared.";
 });
