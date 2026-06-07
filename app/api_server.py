@@ -9,6 +9,7 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
@@ -34,6 +35,35 @@ app.mount("/web", StaticFiles(directory=str(WEB_DIR)), name="web")
 app.mount("/assets", StaticFiles(directory=str(ASSETS_DIR)), name="assets")
 app.mount("/outputs", StaticFiles(directory=str(OUTPUT_ROOT)), name="outputs")
 app.mount("/project_exports", StaticFiles(directory=str(PROJECT_EXPORTS)), name="project_exports")
+
+
+def _output_file_url(path_value: str | None) -> str | None:
+    """OUTPUT_ROOT配下のファイルパスを /outputs/... URL に変換する。"""
+    if not path_value:
+        return None
+
+    path = Path(str(path_value)).expanduser()
+    try:
+        resolved = path.resolve()
+        relative = resolved.relative_to(OUTPUT_ROOT.resolve())
+    except (OSError, ValueError):
+        return None
+
+    if not resolved.is_file():
+        return None
+
+    return "/outputs/" + "/".join(quote(part) for part in relative.parts)
+
+
+def _attach_output_urls(chunks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """生成結果チャンクにWeb UI用の wav_url / mp3_url を追加する。"""
+    updated: list[dict[str, Any]] = []
+    for item in chunks:
+        row = dict(item)
+        row["wav_url"] = _output_file_url(row.get("wav"))
+        row["mp3_url"] = _output_file_url(row.get("mp3"))
+        updated.append(row)
+    return updated
 
 
 @app.get("/")
@@ -212,12 +242,13 @@ async def generate_audio(
             status_code=500,
         )
 
-    ok_count = sum(1 for item in chunks if item.get("status") == "ok")
+    chunks_with_urls = _attach_output_urls(chunks)
+    ok_count = sum(1 for item in chunks_with_urls if item.get("status") == "ok")
     return JSONResponse(
         {
-            "ok": ok_count == len(chunks),
-            "message": f"生成完了: {ok_count}/{len(chunks)} チャンク成功",
-            "chunks": chunks,
+            "ok": ok_count == len(chunks_with_urls),
+            "message": f"生成完了: {ok_count}/{len(chunks_with_urls)} チャンク成功",
+            "chunks": chunks_with_urls,
             "log": log,
         }
     )
