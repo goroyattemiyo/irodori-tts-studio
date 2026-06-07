@@ -6,6 +6,8 @@ import subprocess
 import sys
 import time
 import uuid
+import threading
+import traceback
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -64,6 +66,161 @@ def _attach_output_urls(chunks: list[dict[str, Any]]) -> list[dict[str, Any]]:
         row["mp3_url"] = _output_file_url(row.get("mp3"))
         updated.append(row)
     return updated
+
+
+_GENERATE_JOBS: dict[str, dict[str, Any]] = {}
+_GENERATE_JOBS_LOCK = threading.Lock()
+
+
+def _update_generate_job(job_id: str, **values: Any) -> None:
+    with _GENERATE_JOBS_LOCK:
+        job = _GENERATE_JOBS.setdefault(job_id, {})
+        job.update(values)
+        job["updated_at"] = datetime.now().isoformat(timespec="seconds")
+
+
+def _get_generate_job(job_id: str) -> dict[str, Any] | None:
+    with _GENERATE_JOBS_LOCK:
+        job = _GENERATE_JOBS.get(job_id)
+        return dict(job) if job is not None else None
+
+
+def _run_generate_job(job_id: str, params: dict[str, Any]) -> None:
+    _update_generate_job(
+        job_id,
+        status="running",
+        message="生成を開始しました。",
+        log=["生成ジョブを開始しました。"],
+    )
+
+    started_at = time.monotonic()
+
+    try:
+        from app.irodori_app import DEFAULT_HF_CHECKPOINT, _generate_all_chunks
+
+        chunks, log_text = _generate_all_chunks(
+            project_name=params["project_name"],
+            script_text=params["script_text"],
+            split_method=params["split_method"],
+            max_chars=int(params["max_chars"]),
+            ref_path_text=None,
+            uploaded_audio=None,
+            recorded_audio=None,
+            ref_drive_audio=None,
+            cfg_scale_speaker=float(params["cfg_scale_speaker"]),
+            cfg_scale_text=float(params["cfg_scale_text"]),
+            num_steps=int(params["num_steps"]),
+            seed=int(params["seed"]),
+            mp3_bitrate=int(params["mp3_bitrate"]),
+            hf_checkpoint=DEFAULT_HF_CHECKPOINT,
+        )
+
+        chunks_with_urls = _attach_output_urls(chunks)
+        ok_count = sum(1 for item in chunks_with_urls if item.get("status") == "ok")
+        elapsed_sec = int(time.monotonic() - started_at)
+        log_lines = str(log_text or "").splitlines()
+
+        _update_generate_job(
+            job_id,
+            status="done",
+            ok=ok_count == len(chunks_with_urls),
+            message=f"生成完了: {ok_count}/{len(chunks_with_urls)} チャンク成功",
+            chunks=chunks_with_urls,
+            log=log_lines,
+            elapsed_sec=elapsed_sec,
+        )
+    except Exception as exc:
+        elapsed_sec = int(time.monotonic() - started_at)
+        _update_generate_job(
+            job_id,
+            status="error",
+            ok=False,
+            message=f"生成に失敗しました: {exc}",
+            error=str(exc),
+            traceback=traceback.format_exc(),
+            elapsed_sec=elapsed_sec,
+        )
+
+
+@app.post("/api/generate/start")
+async def generate_audio_start(
+    project_name: str = Form("irodori_project"),
+    script_text: str = Form(""),
+    split_method: str = Form("auto"),
+    max_chars: int = Form(150),
+    cfg_scale_speaker: float = Form(7.0),
+    cfg_scale_text: float = Form(2.5),
+    num_steps: int = Form(60),
+    seed: int = Form(42),
+    mp3_bitrate: int = Form(192),
+) -> JSONResponse:
+    """長時間生成用。生成ジョブを開始し、すぐjob_idを返す。"""
+    job_id = str(uuid.uuid4())
+    params = {
+        "project_name": project_name,
+        "script_text": script_text,
+        "split_method": split_method,
+        "max_chars": int(max_chars),
+        "cfg_scale_speaker": float(cfg_scale_speaker),
+        "cfg_scale_text": float(cfg_scale_text),
+        "num_steps": int(num_steps),
+        "seed": int(seed),
+        "mp3_bitrate": int(mp3_bitrate),
+    }
+
+    _update_generate_job(
+        job_id,
+        status="queued",
+        ok=None,
+        message="生成ジョブを受け付けました。",
+        chunks=[],
+        log=["生成ジョブを受け付けました。"],
+        elapsed_sec=0,
+    )
+
+    thread = threading.Thread(
+        target=_run_generate_job,
+        args=(job_id, params),
+        daemon=True,
+    )
+    thread.start()
+
+    return JSONResponse(
+        {
+            "ok": True,
+            "job_id": job_id,
+            "status": "queued",
+            "message": "生成ジョブを開始しました。",
+        }
+    )
+
+
+@app.get("/api/generate/status/{job_id}")
+async def generate_audio_status(job_id: str) -> JSONResponse:
+    """生成ジョブの状態を返す。Web UIはこのAPIを定期的に確認する。"""
+    job = _get_generate_job(job_id)
+    if job is None:
+        return JSONResponse(
+            {
+                "ok": False,
+                "status": "not_found",
+                "message": "指定された生成ジョブが見つかりません。",
+            },
+            status_code=404,
+        )
+
+    return JSONResponse(
+        {
+            "ok": job.get("ok"),
+            "job_id": job_id,
+            "status": job.get("status", "unknown"),
+            "message": job.get("message", ""),
+            "chunks": job.get("chunks", []),
+            "log": job.get("log", []),
+            "elapsed_sec": job.get("elapsed_sec", 0),
+            "error": job.get("error"),
+        }
+    )
 
 
 @app.get("/")

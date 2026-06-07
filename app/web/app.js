@@ -196,50 +196,87 @@ $("generateBtn").addEventListener("click", async () => {
   btn.disabled = true;
 
   const startedAt = Date.now();
-  log("生成開始: 本生成APIへリクエストを送信しました。");
-  toast("生成開始", "音声生成を開始しました。");
+  let lastProgressLogSec = 0;
 
-  const progressTimer = setInterval(() => {
-    const elapsedSec = Math.floor((Date.now() - startedAt) / 1000);
-    log(`生成中... ${elapsedSec}秒経過`);
-  }, 15000);
+  log("生成開始: 生成ジョブを開始します。");
+  toast("生成開始", "音声生成ジョブを開始しました。");
 
   try {
-    const res = await fetch("/api/generate", {
+    const startRes = await fetch("/api/generate/start", {
       method: "POST",
       body: formDataFromState(),
     });
 
-    const rawText = await res.text();
-    let data;
+    const startText = await startRes.text();
+    let startData;
     try {
-      data = rawText ? JSON.parse(rawText) : {};
+      startData = startText ? JSON.parse(startText) : {};
     } catch (parseErr) {
-      const preview = rawText.slice(0, 240).replace(/\s+/g, " ");
-      throw new Error(`JSONではない応答を受信しました: HTTP ${res.status} ${preview}`);
+      const preview = startText.slice(0, 240).replace(/\s+/g, " ");
+      throw new Error(`生成開始APIがJSONではない応答を返しました: HTTP ${startRes.status} ${preview}`);
     }
 
-    if (!res.ok) {
-      throw new Error(data.message || `HTTP ${res.status}`);
+    if (!startRes.ok || !startData.job_id) {
+      throw new Error(startData.message || `生成開始に失敗しました: HTTP ${startRes.status}`);
     }
 
-    const elapsedSec = Math.floor((Date.now() - startedAt) / 1000);
-    toast("生成完了", data.message || "生成が完了しました。");
-    log(`${data.message || "生成完了"} (${elapsedSec}秒)`);
+    const jobId = startData.job_id;
+    log(`生成ジョブ受付: ${jobId}`);
 
-    if (Array.isArray(data.chunks)) {
-      log(`生成チャンク数: ${data.chunks.length}`);
-      renderGeneratedOutputs(data.chunks);
-    }
+    while (true) {
+      await new Promise((resolve) => setTimeout(resolve, 5000));
 
-    if (Array.isArray(data.log)) {
-      data.log.forEach((line) => log(line));
+      const elapsedSec = Math.floor((Date.now() - startedAt) / 1000);
+      if (elapsedSec - lastProgressLogSec >= 15) {
+        lastProgressLogSec = elapsedSec;
+        log(`生成中... ${elapsedSec}秒経過`);
+      }
+
+      const statusRes = await fetch(`/api/generate/status/${encodeURIComponent(jobId)}`);
+      const statusText = await statusRes.text();
+
+      let statusData;
+      try {
+        statusData = statusText ? JSON.parse(statusText) : {};
+      } catch (parseErr) {
+        const preview = statusText.slice(0, 240).replace(/\s+/g, " ");
+        throw new Error(`生成状況APIがJSONではない応答を返しました: HTTP ${statusRes.status} ${preview}`);
+      }
+
+      if (!statusRes.ok) {
+        throw new Error(statusData.message || `生成状況の取得に失敗しました: HTTP ${statusRes.status}`);
+      }
+
+      if (statusData.status === "running" || statusData.status === "queued") {
+        continue;
+      }
+
+      if (statusData.status === "done") {
+        const finalElapsedSec = Math.floor((Date.now() - startedAt) / 1000);
+        toast("生成完了", statusData.message || "生成が完了しました。");
+        log(`${statusData.message || "生成完了"} (${finalElapsedSec}秒)`);
+
+        if (Array.isArray(statusData.chunks)) {
+          log(`生成チャンク数: ${statusData.chunks.length}`);
+          renderGeneratedOutputs(statusData.chunks);
+        }
+
+        if (Array.isArray(statusData.log)) {
+          statusData.log.forEach((line) => log(line));
+        }
+        break;
+      }
+
+      if (statusData.status === "error") {
+        throw new Error(statusData.message || statusData.error || "生成ジョブでエラーが発生しました。");
+      }
+
+      throw new Error(`未知の生成ジョブ状態です: ${statusData.status}`);
     }
   } catch (err) {
     toast("生成エラー", err.message || "生成に失敗しました。");
     log(`生成エラー: ${err.message || err}`);
   } finally {
-    clearInterval(progressTimer);
     btn.disabled = false;
   }
 });
