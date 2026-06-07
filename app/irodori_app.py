@@ -1141,13 +1141,11 @@ def _generate_all_chunks(
             if not output_wav.is_file():
                 raise RuntimeError("infer.pyは正常終了しましたが、音声ファイルが見つかりませんでした。")
 
-            mp3_path, mp3_msg = _wav_to_mp3(output_wav, int(mp3_bitrate))
-            item["mp3"] = str(mp3_path) if mp3_path is not None else None
             item["status"] = "ok"
             log_lines.extend(
                 [
                     f"[OK] chunk_{index:02d}: {output_wav.resolve()}",
-                    f"     {mp3_msg}",
+                    "     MP3変換: スキップ（必要な場合はMP3変換ボタンで実行）",
                 ]
             )
         except Exception as exc:
