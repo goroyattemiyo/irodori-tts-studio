@@ -16,6 +16,57 @@ function toast(title, detail = "") {
   setTimeout(() => div.remove(), 4200);
 }
 
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function renderGeneratedOutputs(chunks) {
+  const container = $("generatedOutputs");
+  if (!container) return;
+
+  const items = Array.isArray(chunks)
+    ? chunks.filter((item) => item && item.status === "ok" && item.wav_url)
+    : [];
+
+  if (!items.length) {
+    container.innerHTML = `<div class="empty">生成済みWAVはまだありません。</div>`;
+    return;
+  }
+
+  container.innerHTML = "";
+
+  for (const item of items) {
+    const index = String(item.index ?? "").padStart(2, "0");
+    const wavUrl = item.wav_url;
+    const mp3Url = item.mp3_url;
+    const textPreview = String(item.text ?? "").slice(0, 80);
+
+    const row = document.createElement("div");
+    row.className = "generated-output-row";
+    row.innerHTML = `
+      <div class="generated-output-head">
+        <strong>チャンク ${escapeHtml(index)}</strong>
+        <small>${escapeHtml(textPreview)}${String(item.text ?? "").length > 80 ? "..." : ""}</small>
+      </div>
+      <audio controls src="${escapeHtml(wavUrl)}"></audio>
+      <div class="generated-output-actions">
+        <a class="button small" href="${escapeHtml(wavUrl)}" download>WAVをダウンロード</a>
+        ${
+          mp3Url
+            ? `<a class="button small" href="${escapeHtml(mp3Url)}" download>MP3をダウンロード</a>`
+            : `<span class="muted">MP3未変換</span>`
+        }
+      </div>
+    `;
+    container.appendChild(row);
+  }
+}
+
 function formDataFromState() {
   const fd = new FormData();
   fd.append("project_name", $("projectName").value || "irodori_project");
@@ -170,6 +221,7 @@ $("generateBtn").addEventListener("click", async () => {
 
     if (Array.isArray(data.chunks)) {
       log(`生成チャンク数: ${data.chunks.length}`);
+      renderGeneratedOutputs(data.chunks);
     }
 
     if (Array.isArray(data.log)) {
