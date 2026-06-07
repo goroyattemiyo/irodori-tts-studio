@@ -209,7 +209,15 @@ $("generateBtn").addEventListener("click", async () => {
       method: "POST",
       body: formDataFromState(),
     });
-    const data = await res.json();
+
+    const rawText = await res.text();
+    let data;
+    try {
+      data = rawText ? JSON.parse(rawText) : {};
+    } catch (parseErr) {
+      const preview = rawText.slice(0, 240).replace(/\s+/g, " ");
+      throw new Error(`JSONではない応答を受信しました: HTTP ${res.status} ${preview}`);
+    }
 
     if (!res.ok) {
       throw new Error(data.message || `HTTP ${res.status}`);
