@@ -480,8 +480,7 @@ button:active,
 }
 
 .chunk-list {
-  max-height: 280px;
-  overflow-y: auto;
+  overflow: visible;
 }
 
 .chunk-row {
@@ -498,10 +497,6 @@ button:active,
 }
 
 @media (max-width: 720px) {
-  .chunk-list {
-    max-height: 220px;
-  }
-
   .chunk-row {
     grid-template-columns: 28px 1fr auto;
     gap: 8px;
