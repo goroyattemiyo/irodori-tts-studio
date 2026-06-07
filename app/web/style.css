@@ -478,3 +478,41 @@ button:active,
   color: #64748b;
   font-size: 0.86rem;
 }
+
+.chunk-list {
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.chunk-row {
+  align-items: start;
+  padding: 8px 10px;
+}
+
+.chunk-row span {
+  min-width: 0;
+}
+
+.chunk-row small {
+  line-height: 1.4;
+}
+
+@media (max-width: 720px) {
+  .chunk-list {
+    max-height: 220px;
+  }
+
+  .chunk-row {
+    grid-template-columns: 28px 1fr auto;
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .chunk-row span {
+    font-size: 0.9rem;
+  }
+
+  .chunk-row small {
+    font-size: 0.78rem;
+  }
+}
