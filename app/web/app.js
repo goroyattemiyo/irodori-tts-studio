@@ -107,6 +107,44 @@ $("maxChars").addEventListener("input", () => {
   $("maxCharsValue").textContent = $("maxChars").value;
 });
 
+const refUploadInput = $("refUpload");
+if (refUploadInput) {
+  refUploadInput.addEventListener("change", () => {
+    const file = refUploadInput.files && refUploadInput.files.length > 0
+      ? refUploadInput.files[0]
+      : null;
+
+    const selectedCard = $("refSelectedCard");
+    const selectedName = $("refSelectedName");
+    const uploadCard = $("refUploadCard");
+
+    if (!file) {
+      selectedCard?.classList.add("hidden");
+      if (selectedName) selectedName.textContent = "未選択";
+      uploadCard?.classList.remove("selected");
+      log("参照音声の選択を解除しました。");
+      return;
+    }
+
+    if (selectedName) selectedName.textContent = file.name;
+    selectedCard?.classList.remove("hidden");
+    uploadCard?.classList.add("selected");
+
+    toast("参照音声を選択しました", file.name);
+    log(`参照音声を選択しました: ${file.name}`);
+  });
+}
+
+$("recordBtn")?.addEventListener("click", () => {
+  toast("録音は準備中です", "現在はアップロード参照音声のみ対応しています。");
+  log("録音ボタンは準備中です。現在は参照音声アップロードを使ってください。");
+});
+
+$("driveBtn")?.addEventListener("click", () => {
+  toast("Drive選択は準備中です", "現在はアップロード参照音声のみ対応しています。");
+  log("Drive選択ボタンは準備中です。現在は参照音声アップロードを使ってください。");
+});
+
 $("healthBtn").addEventListener("click", async () => {
   const res = await fetch("/api/health");
   const data = await res.json();
@@ -328,7 +366,17 @@ $("generateBtn").addEventListener("click", async () => {
   const startedAt = Date.now();
   let lastProgressLogSec = 0;
 
+  const refInput = $("refUpload");
+  const refFile = refInput && refInput.files && refInput.files.length > 0
+    ? refInput.files[0]
+    : null;
+
   log("生成開始: 生成ジョブを開始します。");
+  if (refFile) {
+    log(`参照音声あり: ${refFile.name}`);
+  } else {
+    log("参照音声なし: --no-ref で生成します。");
+  }
   toast("生成開始", "音声生成ジョブを開始しました。");
 
   try {

@@ -105,7 +105,7 @@
           </div>
 
           <div class="reference-options">
-            <label class="option-card">
+            <label class="option-card" id="refUploadCard">
               <input type="file" id="refUpload" accept="audio/*">
               <span class="option-icon">⬆️</span>
               <strong>アップロード</strong>
@@ -115,14 +115,20 @@
             <button class="option-card" type="button" id="recordBtn">
               <span class="option-icon">🎙️</span>
               <strong>録音</strong>
-              <small>マイクから録音</small>
+              <small>準備中</small>
             </button>
 
-            <button class="option-card selected" type="button" id="driveBtn">
+            <button class="option-card" type="button" id="driveBtn">
               <img src="/assets/images/icon_drive.svg" alt="" class="option-svg">
               <strong>Driveから選択</strong>
-              <small>次フェーズで接続</small>
+              <small>準備中</small>
             </button>
+          </div>
+
+          <div class="download-card hidden" id="refSelectedCard">
+            <span>参照音声を選択中</span>
+            <strong id="refSelectedName">未選択</strong>
+            <small>生成ボタンを押した時にアップロードされます。</small>
           </div>
         </section>
 
