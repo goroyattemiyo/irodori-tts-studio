@@ -469,10 +469,15 @@ async def chunks_preview(
     if not text:
         return JSONResponse({"ok": True, "chunks": [], "count": 0})
 
-    if split_method == "manual":
-        chunks = [part.strip() for part in text.replace("[BREAK]", "\n[BREAK]\n").split("[BREAK]") if part.strip()]
-    else:
-        chunks = _split_by_length(text, int(max_chars))
+    try:
+        from app.irodori_app import _split_chunks
+
+        chunks = _split_chunks(text, split_method, int(max_chars))
+    except Exception as exc:
+        return JSONResponse(
+            {"ok": False, "message": f"チャンク分割に失敗しました: {exc}", "chunks": [], "count": 0},
+            status_code=400,
+        )
 
     return JSONResponse(
         {

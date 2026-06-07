@@ -493,43 +493,83 @@ def _split_sentences(text: str) -> list[str]:
     return [part.strip() for part in re.findall(r".+?。|.+$", text, flags=re.S) if part.strip()]
 
 
+def _merge_short_chunks(chunks: list[str], min_chars: int = 25, max_chars: int = 150) -> list[str]:
+    """短すぎるチャンクを前後に寄せて、読み上げの不安定化を減らす。"""
+    merged: list[str] = []
+
+    for chunk in chunks:
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+
+        if merged and len(chunk) < min_chars and len(merged[-1]) + len(chunk) <= max_chars:
+            merged[-1] = f"{merged[-1]}{chunk}".strip()
+        else:
+            merged.append(chunk)
+
+    return merged
+
+
+def _split_paragraph_by_sentences(paragraph: str, max_chars: int) -> list[str]:
+    """段落を句点優先で max_chars 目安に分割する。"""
+    chunks: list[str] = []
+    current = ""
+
+    for sentence in _split_sentences(paragraph):
+        sentence = sentence.strip()
+        if not sentence:
+            continue
+
+        if len(sentence) > max_chars:
+            if current:
+                chunks.append(current.strip())
+                current = ""
+            chunks.extend(_split_by_length(sentence, max_chars))
+            continue
+
+        candidate = f"{current}{sentence}" if current else sentence
+        if current and len(candidate) > max_chars:
+            chunks.append(current.strip())
+            current = sentence
+        else:
+            current = candidate
+
+    if current:
+        chunks.append(current.strip())
+
+    return chunks
+
+
 def _split_chunks(text: str, method: str, max_chars: int = 150) -> list[str]:
     """
     台本テキストをチャンクに分割する。
 
     method:
-        "auto"   : 句点・段落で自動分割（推奨）
+        "auto"   : 段落・句点を優先しつつ max_chars 目安で自動分割
         "chars"  : max_chars文字超えで句点/読点分割
         "manual" : [BREAK]タグで手動分割
     """
     source = _first_chunk(text)
+    limit = max(40, int(max_chars))
+
     if method == "manual":
         chunks = [part.strip() for part in re.split(r"\[break\]", source, flags=re.I)]
         return [chunk for chunk in chunks if chunk]
 
     if method == "chars":
-        return _split_by_length(source, int(max_chars))
+        return _split_by_length(source, limit)
 
     chunks: list[str] = []
     paragraphs = [part.strip() for part in re.split(r"\n\s*\n+", source) if part.strip()]
+
     for paragraph in paragraphs:
-        current = ""
-        for sentence in _split_sentences(paragraph):
-            if len(sentence) > 250:
-                if current:
-                    chunks.append(current.strip())
-                    current = ""
-                chunks.extend(_split_by_length(sentence, 200))
-                continue
-            candidate = f"{current}{sentence}" if current else sentence
-            if current and len(candidate) > 250:
-                chunks.append(current.strip())
-                current = sentence
-            else:
-                current = candidate
-        if current:
-            chunks.append(current.strip())
-    return [chunk for chunk in chunks if chunk]
+        if len(paragraph) <= limit:
+            chunks.append(paragraph)
+            continue
+
+        chunks.extend(_split_paragraph_by_sentences(paragraph, limit))
+
+    return _merge_short_chunks([chunk for chunk in chunks if chunk], min_chars=25, max_chars=limit)
 
 
 def _normalize_file_selection(value: object) -> str:
