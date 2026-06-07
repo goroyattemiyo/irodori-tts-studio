@@ -516,3 +516,18 @@ button:active,
     font-size: 0.78rem;
   }
 }
+
+#logOutput {
+  max-height: 360px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 720px) {
+  #logOutput {
+    max-height: 280px;
+  }
+}
