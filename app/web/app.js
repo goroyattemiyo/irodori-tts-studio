@@ -1,5 +1,7 @@
 const $ = (id) => document.getElementById(id);
 
+let latestGeneratedChunks = [];
+
 function log(message) {
   const el = $("logOutput");
   const time = new Date().toLocaleTimeString("ja-JP", { hour12: false });
@@ -33,6 +35,8 @@ function renderGeneratedOutputs(chunks) {
     ? chunks.filter((item) => item && item.status === "ok" && item.wav_url)
     : [];
 
+  latestGeneratedChunks = items;
+
   if (!items.length) {
     container.innerHTML = `<div class="empty">生成済みWAVはまだありません。</div>`;
     return;
@@ -41,9 +45,11 @@ function renderGeneratedOutputs(chunks) {
   container.innerHTML = "";
 
   for (const item of items) {
-    const index = String(item.index ?? "").padStart(2, "0");
-    const wavUrl = item.wav_url;
-    const mp3Url = item.mp3_url;
+    const rawIndex = item.index ?? "";
+    const index = String(rawIndex).padStart(2, "0");
+    const cacheKey = item.cache_key ? `?v=${encodeURIComponent(item.cache_key)}` : "";
+    const wavUrl = `${item.wav_url}${cacheKey}`;
+    const mp3Url = item.mp3_url ? `${item.mp3_url}${cacheKey}` : null;
     const textPreview = String(item.text ?? "").slice(0, 80);
 
     const row = document.createElement("div");
@@ -56,6 +62,7 @@ function renderGeneratedOutputs(chunks) {
       <audio controls src="${escapeHtml(wavUrl)}"></audio>
       <div class="generated-output-actions">
         <a class="button small" href="${escapeHtml(wavUrl)}" download>WAVをダウンロード</a>
+        <button class="secondary-button small regenerate-chunk-button" type="button">このチャンクを再生成</button>
         ${
           mp3Url
             ? `<a class="button small" href="${escapeHtml(mp3Url)}" download>MP3をダウンロード</a>`
@@ -63,9 +70,14 @@ function renderGeneratedOutputs(chunks) {
         }
       </div>
     `;
+
+    const regenerateButton = row.querySelector(".regenerate-chunk-button");
+    regenerateButton?.addEventListener("click", () => regenerateChunk(Number(rawIndex)));
+
     container.appendChild(row);
   }
 }
+
 
 function formDataFromState() {
   const fd = new FormData();
@@ -190,6 +202,118 @@ $("previewChunksBtn").addEventListener("click", async () => {
   toast("チャンク分割完了", `${data.count}件のチャンクを作成しました。`);
   log(`チャンク分割完了: ${data.count}件`);
 });
+
+async function readJsonResponse(response, label) {
+  const text = await response.text();
+  try {
+    return text ? JSON.parse(text) : {};
+  } catch (parseErr) {
+    const preview = text.slice(0, 240).replace(/\s+/g, " ");
+    throw new Error(`${label}がJSONではない応答を返しました: HTTP ${response.status} ${preview}`);
+  }
+}
+
+async function waitForJobDone(jobId, label) {
+  const startedAt = Date.now();
+  let lastProgressLogSec = 0;
+
+  while (true) {
+    await new Promise((resolve) => setTimeout(resolve, 5000));
+
+    const elapsedSec = Math.floor((Date.now() - startedAt) / 1000);
+    if (elapsedSec - lastProgressLogSec >= 15) {
+      lastProgressLogSec = elapsedSec;
+      log(`${label}中... ${elapsedSec}秒経過`);
+    }
+
+    const statusRes = await fetch(`/api/generate/status/${encodeURIComponent(jobId)}`);
+    const statusData = await readJsonResponse(statusRes, `${label}状況API`);
+
+    if (!statusRes.ok) {
+      throw new Error(statusData.message || `${label}状況の取得に失敗しました: HTTP ${statusRes.status}`);
+    }
+
+    if (statusData.status === "running" || statusData.status === "queued") {
+      continue;
+    }
+
+    if (statusData.status === "done") {
+      return statusData;
+    }
+
+    if (statusData.status === "error") {
+      throw new Error(statusData.message || statusData.error || `${label}ジョブでエラーが発生しました。`);
+    }
+
+    throw new Error(`未知の${label}ジョブ状態です: ${statusData.status}`);
+  }
+}
+
+async function regenerateChunk(chunkIndex) {
+  const item = latestGeneratedChunks.find((chunk) => Number(chunk.index) === Number(chunkIndex));
+  if (!item) {
+    toast("再生成できません", "対象チャンクが見つかりません。");
+    return;
+  }
+
+  if (!item.project_dir) {
+    toast("再生成できません", "project_dir が見つかりません。");
+    return;
+  }
+
+  const fd = new FormData();
+  fd.append("project_dir", item.project_dir);
+  fd.append("chunk_index", String(item.index));
+  fd.append("chunk_text", item.text || "");
+  fd.append("cfg_scale_speaker", $("cfgSpeaker").value);
+  fd.append("cfg_scale_text", $("cfgText").value);
+  fd.append("num_steps", $("numSteps").value);
+  fd.append("seed", $("seed").value);
+
+  log(`チャンク ${String(item.index).padStart(2, "0")} 再生成開始`);
+  toast("チャンク再生成", `チャンク ${String(item.index).padStart(2, "0")} を再生成します。`);
+
+  try {
+    const startRes = await fetch("/api/chunk/regenerate/start", {
+      method: "POST",
+      body: fd,
+    });
+    const startData = await readJsonResponse(startRes, "チャンク再生成開始API");
+
+    if (!startRes.ok || !startData.job_id) {
+      throw new Error(startData.message || `チャンク再生成開始に失敗しました: HTTP ${startRes.status}`);
+    }
+
+    log(`チャンク再生成ジョブ受付: ${startData.job_id}`);
+
+    const statusData = await waitForJobDone(startData.job_id, "チャンク再生成");
+
+    if (Array.isArray(statusData.chunks) && statusData.chunks.length) {
+      const updatedChunk = {
+        ...statusData.chunks[0],
+        cache_key: String(Date.now()),
+      };
+
+      const merged = latestGeneratedChunks.map((chunk) =>
+        Number(chunk.index) === Number(updatedChunk.index)
+          ? { ...chunk, ...updatedChunk }
+          : chunk
+      );
+
+      renderGeneratedOutputs(merged);
+    }
+
+    if (Array.isArray(statusData.log)) {
+      statusData.log.forEach((line) => log(line));
+    }
+
+    toast("再生成完了", statusData.message || "チャンクを再生成しました。");
+    log(statusData.message || "チャンク再生成が完了しました。");
+  } catch (err) {
+    toast("再生成エラー", err.message || "チャンク再生成に失敗しました。");
+    log(`再生成エラー: ${err.message || err}`);
+  }
+}
 
 $("generateBtn").addEventListener("click", async () => {
   const btn = $("generateBtn");

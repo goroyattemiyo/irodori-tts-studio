@@ -223,6 +223,140 @@ async def generate_audio_status(job_id: str) -> JSONResponse:
     )
 
 
+def _run_regenerate_chunk_job(job_id: str, params: dict[str, Any]) -> None:
+    _update_generate_job(
+        job_id,
+        status="running",
+        message="チャンク再生成を開始しました。",
+        log=["チャンク再生成ジョブを開始しました。"],
+    )
+
+    started_at = time.monotonic()
+
+    try:
+        from app.irodori_app import DEFAULT_HF_CHECKPOINT, _run_infer_for_chunk
+
+        project_dir = Path(str(params["project_dir"])).expanduser().resolve()
+        try:
+            project_dir.relative_to(OUTPUT_ROOT.resolve())
+        except ValueError as exc:
+            raise RuntimeError("指定されたプロジェクトフォルダはoutputs配下ではありません。") from exc
+
+        if not project_dir.is_dir():
+            raise RuntimeError(f"プロジェクトフォルダが見つかりません: {project_dir}")
+
+        chunk_index = int(params["chunk_index"])
+        chunk_text = str(params["chunk_text"]).strip()
+        if not chunk_text:
+            raise RuntimeError("再生成するチャンク本文が空です。")
+
+        output_wav = project_dir / f"chunk_{chunk_index:02d}.wav"
+        text_file = project_dir / f"chunk_{chunk_index:02d}.txt"
+        text_file.write_text(chunk_text, encoding="utf-8")
+
+        result = _run_infer_for_chunk(
+            chunk_text=chunk_text,
+            output_wav=output_wav,
+            ref_wav=None,
+            cfg_scale_speaker=float(params["cfg_scale_speaker"]),
+            cfg_scale_text=float(params["cfg_scale_text"]),
+            num_steps=int(params["num_steps"]),
+            seed=int(params["seed"]),
+            hf_checkpoint=DEFAULT_HF_CHECKPOINT,
+        )
+
+        if result.returncode != 0:
+            raise RuntimeError((result.stderr or result.stdout or "infer.py failed").strip())
+
+        if not output_wav.is_file():
+            raise RuntimeError("infer.pyは正常終了しましたが、音声ファイルが見つかりませんでした。")
+
+        chunk = {
+            "index": chunk_index,
+            "text": chunk_text,
+            "wav": str(output_wav),
+            "mp3": None,
+            "status": "ok",
+            "project_dir": str(project_dir),
+        }
+        chunks_with_urls = _attach_output_urls([chunk])
+        elapsed_sec = int(time.monotonic() - started_at)
+
+        _update_generate_job(
+            job_id,
+            status="done",
+            ok=True,
+            message=f"チャンク {chunk_index:02d} を再生成しました。",
+            chunks=chunks_with_urls,
+            log=[
+                f"チャンク {chunk_index:02d} を再生成しました。",
+                f"output_wav: {output_wav}",
+                "MP3変換: スキップ（必要な場合はMP3変換ボタンで実行）",
+            ],
+            elapsed_sec=elapsed_sec,
+        )
+    except Exception as exc:
+        elapsed_sec = int(time.monotonic() - started_at)
+        _update_generate_job(
+            job_id,
+            status="error",
+            ok=False,
+            message=f"チャンク再生成に失敗しました: {exc}",
+            error=str(exc),
+            traceback=traceback.format_exc(),
+            elapsed_sec=elapsed_sec,
+        )
+
+
+@app.post("/api/chunk/regenerate/start")
+async def regenerate_chunk_start(
+    project_dir: str = Form(""),
+    chunk_index: int = Form(...),
+    chunk_text: str = Form(""),
+    cfg_scale_speaker: float = Form(7.0),
+    cfg_scale_text: float = Form(2.5),
+    num_steps: int = Form(60),
+    seed: int = Form(42),
+) -> JSONResponse:
+    """指定チャンクだけを再生成する。長時間対策のためジョブIDをすぐ返す。"""
+    job_id = str(uuid.uuid4())
+    params = {
+        "project_dir": project_dir,
+        "chunk_index": int(chunk_index),
+        "chunk_text": chunk_text,
+        "cfg_scale_speaker": float(cfg_scale_speaker),
+        "cfg_scale_text": float(cfg_scale_text),
+        "num_steps": int(num_steps),
+        "seed": int(seed),
+    }
+
+    _update_generate_job(
+        job_id,
+        status="queued",
+        ok=None,
+        message="チャンク再生成ジョブを受け付けました。",
+        chunks=[],
+        log=["チャンク再生成ジョブを受け付けました。"],
+        elapsed_sec=0,
+    )
+
+    thread = threading.Thread(
+        target=_run_regenerate_chunk_job,
+        args=(job_id, params),
+        daemon=True,
+    )
+    thread.start()
+
+    return JSONResponse(
+        {
+            "ok": True,
+            "job_id": job_id,
+            "status": "queued",
+            "message": "チャンク再生成ジョブを開始しました。",
+        }
+    )
+
+
 @app.get("/")
 def index() -> FileResponse:
     return FileResponse(WEB_DIR / "index.html")

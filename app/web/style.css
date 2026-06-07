@@ -537,3 +537,13 @@ button:active,
   gap: 8px;
   align-items: center;
 }
+
+.regenerate-chunk-button {
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .regenerate-chunk-button {
+    width: 100%;
+  }
+}
