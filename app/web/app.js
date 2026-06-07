@@ -141,13 +141,47 @@ $("previewChunksBtn").addEventListener("click", async () => {
 });
 
 $("generateBtn").addEventListener("click", async () => {
-  const res = await fetch("/api/generate/mock", {
-    method: "POST",
-    body: formDataFromState(),
-  });
-  const data = await res.json();
-  toast("生成モック完了", data.message);
-  log(`生成モック完了: ${data.job_id}`);
+  const btn = $("generateBtn");
+  btn.disabled = true;
+
+  const startedAt = Date.now();
+  log("生成開始: 本生成APIへリクエストを送信しました。");
+  toast("生成開始", "音声生成を開始しました。");
+
+  const progressTimer = setInterval(() => {
+    const elapsedSec = Math.floor((Date.now() - startedAt) / 1000);
+    log(`生成中... ${elapsedSec}秒経過`);
+  }, 15000);
+
+  try {
+    const res = await fetch("/api/generate", {
+      method: "POST",
+      body: formDataFromState(),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.message || `HTTP ${res.status}`);
+    }
+
+    const elapsedSec = Math.floor((Date.now() - startedAt) / 1000);
+    toast("生成完了", data.message || "生成が完了しました。");
+    log(`${data.message || "生成完了"} (${elapsedSec}秒)`);
+
+    if (Array.isArray(data.chunks)) {
+      log(`生成チャンク数: ${data.chunks.length}`);
+    }
+
+    if (Array.isArray(data.log)) {
+      data.log.forEach((line) => log(line));
+    }
+  } catch (err) {
+    toast("生成エラー", err.message || "生成に失敗しました。");
+    log(`生成エラー: ${err.message || err}`);
+  } finally {
+    clearInterval(progressTimer);
+    btn.disabled = false;
+  }
 });
 
 $("cancelBtn").addEventListener("click", () => {

@@ -1028,8 +1028,9 @@ def _generate_all_chunks(
     if len(chunks_text) > MAX_CHUNKS:
         raise gr.Error(f"チャンク数が{len(chunks_text)}件です。Phase 3では最大{MAX_CHUNKS}件までです。")
 
-    # 既存フォルダがあれば再利用する（PCが落ちても続きから再開できる）
-    project_dir = _resolve_project_dir(project_name, force_new=False)
+    # 同名プロジェクトでも毎回新しい出力フォルダを作る
+    # 既存WAV/MP3の再利用による即完了・重複混乱を避ける
+    project_dir = _resolve_project_dir(project_name, force_new=True)
     ref_wav, ref_summary = _resolve_reference_audio(
         project_dir=project_dir,
         ref_path_text=ref_path_text,
