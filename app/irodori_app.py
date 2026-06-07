@@ -58,10 +58,28 @@ def _detect_project_root() -> Path:
     return here
 
 
+STUDIO_ROOT = Path(__file__).resolve().parent.parent
+
+def _detect_output_root() -> Path:
+    """
+    生成物の保存先を取得する。
+
+    優先順:
+    1. 環境変数 IRODORI_OUTPUT_ROOT
+    2. Studioリポジトリ側 outputs
+
+    Irodori-TTS本体は自分の管理リポジトリではないため、
+    生成物は原則としてStudio側で管理する。
+    """
+    env_output = os.environ.get("IRODORI_OUTPUT_ROOT", "").strip().strip('"')
+    if env_output:
+        return Path(env_output).expanduser()
+    return STUDIO_ROOT / "outputs"
+
 PROJECT_ROOT = _detect_project_root()
-OUTPUT_ROOT = PROJECT_ROOT / "outputs"
+OUTPUT_ROOT = _detect_output_root()
 OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
-DOWNLOAD_ROOT = PROJECT_ROOT / "project_exports"
+DOWNLOAD_ROOT = STUDIO_ROOT / "project_exports"
 DOWNLOAD_ROOT.mkdir(parents=True, exist_ok=True)
 MAX_CHUNKS = 20
 _CANCEL_REQUESTED = False

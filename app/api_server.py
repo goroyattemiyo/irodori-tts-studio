@@ -19,7 +19,10 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 APP_DIR = PROJECT_ROOT / "app"
 WEB_DIR = APP_DIR / "web"
 ASSETS_DIR = APP_DIR / "assets"
-OUTPUT_ROOT = PROJECT_ROOT / "outputs"
+
+from app.irodori_app import OUTPUT_ROOT as IRODORI_OUTPUT_ROOT
+
+OUTPUT_ROOT = IRODORI_OUTPUT_ROOT
 PROJECT_EXPORTS = PROJECT_ROOT / "project_exports"
 
 OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
