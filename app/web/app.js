@@ -90,6 +90,12 @@ function formDataFromState() {
   fd.append("num_steps", $("numSteps").value);
   fd.append("seed", $("seed").value);
   fd.append("mp3_bitrate", $("mp3Bitrate").value);
+
+  const refInput = $("refUpload");
+  if (refInput && refInput.files && refInput.files.length > 0) {
+    fd.append("uploaded_audio", refInput.files[0]);
+  }
+
   return fd;
 }
 

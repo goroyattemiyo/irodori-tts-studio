@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 import sys
 import time
@@ -27,9 +28,11 @@ from app.irodori_app import OUTPUT_ROOT as IRODORI_OUTPUT_ROOT
 
 OUTPUT_ROOT = IRODORI_OUTPUT_ROOT
 PROJECT_EXPORTS = PROJECT_ROOT / "project_exports"
+REFERENCE_UPLOADS = OUTPUT_ROOT / "_references"
 
 OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
 PROJECT_EXPORTS.mkdir(parents=True, exist_ok=True)
+REFERENCE_UPLOADS.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(title=APP_TITLE)
 
@@ -68,6 +71,32 @@ def _attach_output_urls(chunks: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return updated
 
 
+async def _save_uploaded_reference_audio(uploaded_audio: UploadFile | None) -> str | None:
+    """Custom Web UIから送られた参照音声を一時保存し、ローカルパスを返す。"""
+    if uploaded_audio is None or not uploaded_audio.filename:
+        return None
+
+    source_name = Path(uploaded_audio.filename).name
+    suffix = Path(source_name).suffix.lower() or ".wav"
+    if suffix not in {".wav", ".mp3", ".m4a", ".flac", ".ogg", ".webm"}:
+        raise RuntimeError(f"未対応の参照音声形式です: {suffix}")
+
+    safe_stem = "".join(
+        c if c.isalnum() or c in "-_." else "_"
+        for c in Path(source_name).stem
+    ).strip("._") or "reference"
+
+    target = REFERENCE_UPLOADS / f"{safe_stem}_{datetime.now():%Y%m%d_%H%M%S}_{uuid.uuid4().hex[:8]}{suffix}"
+
+    with target.open("wb") as handle:
+        shutil.copyfileobj(uploaded_audio.file, handle)
+
+    if not target.is_file() or target.stat().st_size == 0:
+        raise RuntimeError("参照音声の保存に失敗しました。")
+
+    return str(target)
+
+
 _GENERATE_JOBS: dict[str, dict[str, Any]] = {}
 _GENERATE_JOBS_LOCK = threading.Lock()
 
@@ -103,8 +132,8 @@ def _run_generate_job(job_id: str, params: dict[str, Any]) -> None:
             script_text=params["script_text"],
             split_method=params["split_method"],
             max_chars=int(params["max_chars"]),
-            ref_path_text=None,
-            uploaded_audio=None,
+            ref_path_text=params.get("ref_path_text"),
+            uploaded_audio=params.get("uploaded_audio"),
             recorded_audio=None,
             ref_drive_audio=None,
             cfg_scale_speaker=float(params["cfg_scale_speaker"]),
@@ -153,9 +182,21 @@ async def generate_audio_start(
     num_steps: int = Form(60),
     seed: int = Form(42),
     mp3_bitrate: int = Form(192),
+    uploaded_audio: UploadFile | None = File(None),
 ) -> JSONResponse:
     """長時間生成用。生成ジョブを開始し、すぐjob_idを返す。"""
     job_id = str(uuid.uuid4())
+    try:
+        uploaded_audio_path = await _save_uploaded_reference_audio(uploaded_audio)
+    except Exception as exc:
+        return JSONResponse(
+            {
+                "ok": False,
+                "message": f"参照音声の保存に失敗しました: {exc}",
+            },
+            status_code=400,
+        )
+
     params = {
         "project_name": project_name,
         "script_text": script_text,
@@ -166,6 +207,8 @@ async def generate_audio_start(
         "num_steps": int(num_steps),
         "seed": int(seed),
         "mp3_bitrate": int(mp3_bitrate),
+        "ref_path_text": None,
+        "uploaded_audio": uploaded_audio_path,
     }
 
     _update_generate_job(
